@@ -1,9 +1,10 @@
 import express from 'express';
+import { CreateVm, DeleteVm, GetAllVms, GetVm, UpdateVm } from '../controllers/compute.controller.js';
 const router = express.Router();
-router.post('/', createVm);
-router.get("/", getAllVms);
-router.get('/:vmId', getVm);
-router.put("/:vmId", updateVm);
-router.delete("/:vmId", deleteVm);
+router.post('/', CreateVm);
+router.get("/", GetAllVms);
+router.get('/:vmId', GetVm);
+router.put("/:vmId", UpdateVm);
+router.delete("/:vmId", DeleteVm);
 export default router;
 //# sourceMappingURL=compute.routes.js.map
