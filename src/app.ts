@@ -1,9 +1,8 @@
-import express, { type Request, type Response } from "express";
+import express from "express";
 import computeRouter from './routes/compute.routes.js'
 import rootRouter from './routes/root.routes.js'
 
 const app = express();
-const PORT = 3000;
 
 app.use(express.json());
 
