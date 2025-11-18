@@ -31,4 +31,5 @@ export const config = Object.freeze({
 
   log: process.env.LOG_LEVEL,
   env: process.env.NODE_ENV,
+  dbUri: process.env.DATABASE_URL || "",
 })

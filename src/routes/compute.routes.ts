@@ -5,7 +5,7 @@ const router = express.Router();
 router.post('/', CreateVm);
 router.get("/", GetAllVms);
 router.get('/:vmId', GetVm);
-router.put("/:vmId", UpdateVm);
+router.patch("/:vmId", UpdateVm)
 router.delete("/:vmId", DeleteVm);
 
 export default router;

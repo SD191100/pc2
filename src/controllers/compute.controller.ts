@@ -10,10 +10,15 @@ export const CreateVm = async (req: Request, res: Response, next: NextFunction) 
   try {
     const vmConfig: CreateVMRequest = req.body;
 
-    if (!vmConfig || !vmConfig.name || !vmConfig.cpu || !vmConfig.memory || !vmConfig.storage || !vmConfig.id || !vmConfig.ioAddress || !vmConfig.gateway || !vmConfig.username || !vmConfig.password) {
+    if (!vmConfig || !vmConfig.name || !vmConfig.cpu || !vmConfig.memory || !vmConfig.storage || !vmConfig.id || !vmConfig.ioAddress || !vmConfig.gateway) {
       logger.info(`Missing required VM configuration`)
       res.status(400).json({ message: "Missing required VM configuration." })
       return next(new AppError('Missing required VM config', 400));
+    }
+
+    if (!vmConfig.username || !vmConfig.password) {
+      vmConfig.username = "administrator";
+      vmConfig.password = "administrator";
     }
 
     if (!vmConfig.sshKey) {
