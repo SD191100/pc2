@@ -1,5 +1,5 @@
 import express from 'express'
-import { CreateVm, DeleteVm, GetAllVms, GetVm, UpdateVm } from '../controllers/compute.controller.js';
+import { CreateVm, DeleteVm, GetAllVms, GetVm, UpdateVm } from '../src/controllers/compute.controller.js';
 const router = express.Router();
 
 router.post('/', CreateVm);
