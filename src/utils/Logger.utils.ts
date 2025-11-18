@@ -24,6 +24,11 @@ const logger = winston.createLogger({
 
 if (config.env !== 'production') {
   logger.add(new winston.transports.Console(devFormat));
-};
+} else {
+  logger.add(new winston.transports.File({
+    filename: `logs/app.log`,
+    format: winston.format.json()
+  }))
+}
 
 export default logger;
