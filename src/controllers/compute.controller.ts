@@ -1,13 +1,12 @@
-import type { NextFunction, Request, Response } from "express";
+import type {Request, Response } from "express";
 import type { CreateVMRequest } from "../types/compute.type.js";
 import { CreateOrUpdateVm, DestroyVm, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/Logger.utils.js";
-import AppError from "../utils/AppError.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 
 
-export const CreateVm = async (req: Request, res: Response, next: NextFunction) => {
+export const CreateVm = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;
   const vmConfig: CreateVMRequest = req.body;
 

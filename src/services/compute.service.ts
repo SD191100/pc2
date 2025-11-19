@@ -7,6 +7,7 @@ import { formatDuration } from '../utils/Time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
 import { createVm, deleteVm, findAll, update } from "../repositories/vm.repository.js";
 import { VmStatus } from "../generated/prisma/browser.js";
+import { ErrorCode } from "../common/error-codes.enum.js";
 
 export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
   logger.debug("CreateOrUpdateVm: Starting VM creation/update", {
@@ -88,7 +89,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
       error: err.message,
       stack: err.stack,
     });
-    throw err;
+    throw new AppError(`Failed to create/update VM`, 500 , ErrorCode.VM_CREATION_FAILED);
   }
 };
 
@@ -135,7 +136,7 @@ export const DestroyVm = async (vm: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError(`Stack not found: ${error.message}`, 500);
+    throw new AppError(`Stack not found: ${error.message}`, 500, ErrorCode.PULUMI_STACK_ERROR);
   }
 };
 
@@ -246,7 +247,7 @@ export const ListVms = async () => {
       error: error.message,
       stack: error.stack,
     });
-    throw error;
+    throw new AppError("failed to retrieve VM list", 500, ErrorCode.VM_STATE_FETCH_FAILED);
   }
 };
 
@@ -327,7 +328,7 @@ export const GetVmState = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw error;
+    throw new AppError("failed to fetch vm state", 500, ErrorCode.VM_STATE_FETCH_FAILED);
   }
 };
 
@@ -371,7 +372,7 @@ const selectStack = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new Error(`Pulumi operation failed for stack ${stackName}. Reason: ${error.message}`);
+    throw new AppError(`Pulumi operation failed for stack ${stackName}`, 500, ErrorCode.PULUMI_STACK_ERROR);
   }
 };
 
@@ -415,7 +416,7 @@ export const createOrSelectStack = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError(`Pulumi operation failed for stack ${stackName}. Reason: ${error.message}`, 500);
+    throw new AppError(`Pulumi operation failed for stack ${stackName}`, 500, ErrorCode.PULUMI_STACK_ERROR);
   }
 };
 
