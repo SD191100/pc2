@@ -6,37 +6,36 @@ import AppError from "../utils/AppError.utils.js";
 
 
 export const CreateVm = async (req: Request, res: Response, next: NextFunction) => {
-  console.log("hit createVm");
+  const vmConfig: CreateVMRequest = req.body;
+
+  if (!vmConfig || !vmConfig.name || !vmConfig.cpu || !vmConfig.memory || !vmConfig.storage || !vmConfig.id || !vmConfig.ioAddress || !vmConfig.gateway) {
+    logger.info(`Missing required VM configuration`)
+    res.status(400).json({ message: "Missing required VM configuration." })
+    return next(new AppError('Missing required VM config', 400));
+  }
+
+  if (!vmConfig.username || !vmConfig.password) {
+    vmConfig.username = "administrator";
+    vmConfig.password = "administrator";
+  }
+
+  if (!vmConfig.sshKey) {
+    logger.info(`Creating ssh key for connecting to port 22`)
+    // const { privateKey, publicKey } = await generateSshKey();
+    //   vmConfig.sshKey = publicKey;
+    //   privatekey = privateKey;
+    // }
+
+    console.log();
+  }
+
   try {
-    const vmConfig: CreateVMRequest = req.body;
+    logger.info(`Recieved request to create VM: ${vmConfig.name}`);
+    CreateOrUpdateVm(vmConfig);
 
-    if (!vmConfig || !vmConfig.name || !vmConfig.cpu || !vmConfig.memory || !vmConfig.storage || !vmConfig.id || !vmConfig.ioAddress || !vmConfig.gateway) {
-      logger.info(`Missing required VM configuration`)
-      res.status(400).json({ message: "Missing required VM configuration." })
-      return next(new AppError('Missing required VM config', 400));
-    }
-
-    if (!vmConfig.username || !vmConfig.password) {
-      vmConfig.username = "administrator";
-      vmConfig.password = "administrator";
-    }
-
-    if (!vmConfig.sshKey) {
-      logger.info(`Creating ssh key for connecting to port 22`)
-      // const { privateKey, publicKey } = await generateSshKey();
-      //   vmConfig.sshKey = publicKey;
-      //   privatekey = privateKey;
-      // }
-
-      console.log();
-      logger.info(`Recieved request to create VM: ${vmConfig.name}`);
-
-      await CreateOrUpdateVm(vmConfig);
-
-      res.status(200).json({
-        message: `VM Creation for '${vmConfig.name}' has been started.`,
-      });
-    }
+    res.status(200).json({
+      message: `VM Creation for '${vmConfig.name}' has been started.`,
+    });
   } catch (error: any) {
     logger.error(``)
     logger.error(`Failed to create vm ${error}`);
@@ -57,7 +56,7 @@ export const DeleteVm = async (req: Request, res: Response) => {
 
     logger.info(`Recieved request to destroy VM: vm-${vmId}.`);
 
-    await DestroyVm(vmId);
+    DestroyVm(vmId);
 
     res.status(202).json({
       message: `VM destruction for 'vm-${vmId}' has been started.`,
@@ -70,7 +69,7 @@ export const DeleteVm = async (req: Request, res: Response) => {
 
 export const GetAllVms = async (req: Request, res: Response) => {
   try {
-    const vms = await ListVms();
+    const vms = ListVms();
     res.status(200).json({ message: "list fetched successfully", output: vms });
   } catch (error: any) {
     logger.error(`[error] ${error}`)
@@ -79,17 +78,17 @@ export const GetAllVms = async (req: Request, res: Response) => {
 }
 
 export const GetVm = async (req: Request, res: Response) => {
+  const { vmId } = req.params;
+  if (!vmId) {
+    return res.status(400).json({ message: "VM id is required." });
+  }
   try {
-    const { vmId } = req.params;
-    if (!vmId) {
-      return res.status(400).json({ message: "VM id is required." });
-    }
-    const state = await GetVmState(vmId);
-    res.status(200).json({ message: "list fetched successfully", output: state });
+    const state = GetVmState(vmId);
+    res.status(200).json({ message: "vm fetched successfully", output: state });
   } catch (error: any) {
-    console.error(`[error] ${error.message}`);
+    console.error(`[error] ${error.details}`);
     // Send the actual error message in the response
-    res.status(500).json({ message: `[error] ${error.message}` });
+    res.status(500).json({ message: `[error] ${error.details}` });
   }
 }
 

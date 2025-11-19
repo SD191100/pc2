@@ -5,10 +5,13 @@ import AppError from "../utils/AppError.utils.js";
 import { Agent } from 'undici';
 import { formatDuration } from '../utils/Time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
+import { createVm, deleteVm, findAll, update } from "../repositories/vm.repository.js";
+import { VmStatus } from "../generated/prisma/browser.js";
 
 export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
 
   const stack = await createOrSelectStack(String(vm.id));
+
 
   await stack.setConfig("vm:name", { value: vm.name });
   await stack.setConfig("vm:cpu", { value: String(vm.cpu) });
@@ -23,19 +26,54 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
 
   await stack.setConfig("vm:password", { value: vm.password });
   await stack.setConfig("vm:templateId", { value: vm.templateId });
+  const id = crypto.randomUUID();
 
-  return await stack.up({ onOutput: console.log })
+  const conf = {
+    id,
+    vmId: String(vm.id),
+    name: vm.name,
+    cpu: vm.cpu,
+    memory: vm.memory,
+    storage: vm.storage,
+
+    templateId: vm.templateId,
+    ioAddress: vm.ioAddress,
+    gateway: vm.gateway,
+    username: vm.username,
+    password: vm.password,
+
+    stackName: stack.name,
+    status: VmStatus.creating,
+    // owner: null,
+  }
+  try {
+    await createVm(conf)
+    console.log("here i am after doing createVM")
+    await stack.up({ onOutput: console.log })
+    console.log("here i am after doing stack.up")
+    await update(id, { status: VmStatus.completed })
+    console.log("update done bhai")
+  } catch (err) {
+    console.log("error")
+    // await update(id, { status: VmStatus.failed })
+    logger.error(`error`, err)
+  }
 };
 
 export const DestroyVm = async (vm: string) => {
   console.log(vm);
 
-  const stack = await selectStack(String(vm));
-  const vmName = stack.name;
+  try {
+    const stack = await selectStack(String(vm));
+    const vmName = stack.name;
 
-  await stack.destroy({ onOutput: console.log });
-  await stack.workspace.removeStack(vmName, { force: true, preserveConfig: false });
-  console.log(`Stack ${vmName} destroyed and removed`)
+    await stack.destroy({ onOutput: console.log });
+    await stack.workspace.removeStack(vmName, { force: true, preserveConfig: false });
+    await deleteVm(vm);
+    logger.info(`Stack ${vmName} destroyed and removed`)
+  } catch (error) {
+    throw new AppError(`Stack not found: ${error}`, 500)
+  }
 }
 
 export const ListVms = async () => {
@@ -70,7 +108,7 @@ export const ListVms = async () => {
     }
 
     const vmStatus = await response.json();
-    let output: VmInfo[] = [];
+    let allVms: VmInfo[] = [];
     const vmData = vmStatus.data;
     // console.log(vmStatus)
     // console.log(vmData)
@@ -80,7 +118,7 @@ export const ListVms = async () => {
         continue;
       }
       const time = formatDuration(vmData[i].uptime);
-      output.push({
+      allVms.push({
         vmId: vmData[i].vmid,
         cpus: vmData[i].cpus,
         memory: vmData[i].mem,
@@ -89,8 +127,20 @@ export const ListVms = async () => {
         uptime: time,
       })
     }
-    console.log(output);
-    return output;
+
+    const output = await findAll();
+    // console.log("output gotten", output)
+    let filteredOutput: VmInfo[] | any = [];
+
+    for (let i = 0; i < output.length; i++) {
+      for (let j = 0; j < allVms.length; j++) {
+        if (output[i]?.vmId == allVms[j]?.vmId) {
+          filteredOutput.push(allVms[j])
+        }
+      }
+    }
+    // console.log("ggs")
+    return filteredOutput;
 
   } catch (error: any) {
     console.error("Error:", error); // Log the full error object
