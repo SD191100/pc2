@@ -3,6 +3,8 @@ import type { CreateVMRequest } from "../types/compute.type.js";
 import { CreateOrUpdateVm, DestroyVm, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/Logger.utils.js";
 import AppError from "../utils/AppError.utils.js";
+import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
+import { ErrorCode } from "../common/error-codes.enum.js";
 
 
 export const CreateVm = async (req: Request, res: Response, next: NextFunction) => {
@@ -20,7 +22,7 @@ export const CreateVm = async (req: Request, res: Response, next: NextFunction) 
       requestId,
       providedFields: vmConfig ? Object.keys(vmConfig) : [],
     });
-    res.status(400).json({ message: "Missing required VM configuration." });
+    sendError(res, 400, "Missing required VM configuration.", undefined , ErrorCode.VALIDATION_ERROR)
     return;
   }
 
@@ -53,9 +55,7 @@ export const CreateVm = async (req: Request, res: Response, next: NextFunction) 
       vmName: vmConfig.name,
     });
 
-    res.status(200).json({
-      message: `VM Creation for '${vmConfig.name}' has been started.`,
-    });
+    sendSuccess(res, 200, `VM Creation for '${vmConfig.name}' has been started.`);
   } catch (error: any) {
     logger.error("CreateVm: Failed to create VM", {
       requestId,
@@ -63,7 +63,7 @@ export const CreateVm = async (req: Request, res: Response, next: NextFunction) 
       error: error.message,
       stack: error.stack,
     });
-    res.status(500).json({ message: `[error] ${error.message}` });
+    sendError(res, 500, `internal server error`, undefined, ErrorCode.INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -81,7 +81,8 @@ export const DeleteVm = async (req: Request, res: Response) => {
     logger.warn("DeleteVm: Validation failed - vmId is required", {
       requestId,
     });
-    return res.status(400).json({ message: "VM id is required." });
+    sendError(res, 400, "VM_id is required.", undefined, ErrorCode.VALIDATION_ERROR)
+    return;
   }
 
   try {
@@ -97,9 +98,7 @@ export const DeleteVm = async (req: Request, res: Response) => {
       vmId,
     });
 
-    res.status(202).json({
-      message: `VM destruction for 'vm-${vmId}' has been started.`,
-    });
+    sendSuccess(res, 202, `VM destruction for ${vmId} has been started.`)
   } catch (error: any) {
     logger.error("DeleteVm: Failed to delete VM", {
       requestId,
@@ -107,12 +106,14 @@ export const DeleteVm = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    res.status(500).json({ message: `[error] ${error.message}` });
+    sendError(res, 500, `internal server error while deleting vm`, undefined, ErrorCode.INTERNAL_SERVER_ERROR)
   }
 };
 
 export const GetAllVms = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;
+  const pageNum = parseInt(String(req.query.page)) || 1;
+  const limitNum = parseInt(String(req.query.limit)) || 10;
 
   logger.debug("GetAllVms: Fetching all VMs", {
     requestId,
@@ -129,15 +130,14 @@ export const GetAllVms = async (req: Request, res: Response) => {
       requestId,
       vmCount: vms?.length || 0,
     });
-
-    res.status(200).json({ message: "list fetched successfully", output: vms });
+    sendPaginated(res, 200, "list fetched successfully", vms, vms.length, pageNum, limitNum)
   } catch (error: any) {
     logger.error("GetAllVms: Failed to retrieve VMs", {
       requestId,
       error: error.message,
       stack: error.stack,
     });
-    res.status(500).json({ message: `[error] ${error.message}` });
+    sendError(res, 500, `failed to retrieve VMs`, undefined, ErrorCode.INTERNAL_SERVER_ERROR)
   }
 };
 
@@ -154,7 +154,8 @@ export const GetVm = async (req: Request, res: Response) => {
     logger.warn("GetVm: Validation failed - vmId is required", {
       requestId,
     });
-    return res.status(400).json({ message: "VM id is required." });
+    sendError(res, 400, "VM id is required.", undefined, ErrorCode.VALIDATION_ERROR);
+    return;
   }
 
   try {
@@ -169,8 +170,7 @@ export const GetVm = async (req: Request, res: Response) => {
       requestId,
       vmId,
     });
-
-    res.status(200).json({ message: "vm fetched successfully", output: state });
+    sendSuccess(res, 200, "vm state fetched successfully", state)
   } catch (error: any) {
     logger.error("GetVm: Failed to retrieve VM state", {
       requestId,
@@ -178,7 +178,7 @@ export const GetVm = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    res.status(500).json({ message: `[error] ${error.message}` });
+    sendError(res, 500, `Failed to retrieve VM state`, undefined, ErrorCode.VM_STATE_FETCH_FAILED)
   }
 };
 
