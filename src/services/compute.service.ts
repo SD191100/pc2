@@ -5,7 +5,7 @@ import AppError from "../utils/AppError.utils.js";
 import { Agent } from 'undici';
 import { formatDuration } from '../utils/Time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
-import { createVm, deleteVm, findAll, update } from "../repositories/vm.repository.js";
+import { CreateVmRecord, DeleteVmRecord, FindAllVms, FindVmById, UpdateVmRecord } from "../repositories/vm.repository.js";
 import { taskStatus, VmStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { updateTask } from "../repositories/task.repository.js";
@@ -65,7 +65,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       recordId: id,
     });
 
-    await createVm(conf);
+    await CreateVmRecord(conf);
     logger.debug("CreateOrUpdateVm: updating record for task in database from pending to inProgress", {
       vmId: vm.id,
       recordId: id,
@@ -85,7 +85,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       recordId: id,
     });
 
-    await update(id, { status: VmStatus.completed });
+    await UpdateVmRecord(id, { status: VmStatus.completed });
     logger.debug("CreateOrUpdateVm: Updating Task status to completed", {
       vmId: vm.id,
       taskId,
@@ -103,7 +103,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       error: err.message,
       stack: err.stack,
     });
-    await update(id, { status: VmStatus.failed });
+    await UpdateVmRecord(id, { status: VmStatus.failed });
     await updateTask(taskId, { status: taskStatus.failed });
     throw new AppError(`Failed to create/update VM`, 500, ErrorCode.VM_CREATION_FAILED);
   }
@@ -140,7 +140,7 @@ export const DestroyVm = async (vm: string) => {
       vmId: vm,
     });
 
-    await deleteVm(vm);
+    await DeleteVmRecord(vm);
 
     logger.info("DestroyVm: VM destruction completed successfully", {
       vmId: vm,
@@ -234,7 +234,7 @@ export const ListVms = async () => {
       proxmoxVmCount: allVms.length,
     });
 
-    const output = await findAll();
+    const output = await FindAllVms();
 
     logger.debug("ListVms: Filtering VMs by database records", {
       databaseVmCount: output.length,

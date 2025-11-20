@@ -118,29 +118,29 @@ export const DeleteVm = async (req: Request, res: Response) => {
   }
 };
 
-export const GetAllVms = async (req: Request, res: Response) => {
+export const GetVms = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;
   const pageNum = parseInt(String(req.query.page)) || 1;
   const limitNum = parseInt(String(req.query.limit)) || 10;
 
-  logger.debug("GetAllVms: Fetching all VMs", {
+  logger.debug("GetVms: Fetching all VMs", {
     requestId,
   });
 
   try {
-    logger.info("GetAllVms: Retrieving VMs from service", {
+    logger.info("GetVms: Retrieving VMs from service", {
       requestId,
-    });
+    });   
 
     const vms = await ListVms();
 
-    logger.debug("GetAllVms: VMs retrieved successfully", {
+    logger.debug("GetVms: VMs retrieved successfully", {
       requestId,
       vmCount: vms?.length || 0,
     });
     sendPaginated(res, 200, "list fetched successfully", vms, vms.length, pageNum, limitNum)
   } catch (error: any) {
-    logger.error("GetAllVms: Failed to retrieve VMs", {
+    logger.error("GetVms: Failed to retrieve VMs", {
       requestId,
       error: error.message,
       stack: error.stack,
@@ -191,5 +191,9 @@ export const GetVm = async (req: Request, res: Response) => {
 };
 
 export const UpdateVm = CreateVm;
+
+export const StartVm = () => {}
+export const StopVm = () => {}
+export const RestartVm = () => {}
 
 

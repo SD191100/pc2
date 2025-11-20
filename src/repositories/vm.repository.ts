@@ -3,7 +3,7 @@ import prisma from "../../prisma/client.js";
 import type { VMCreateInput } from "../generated/prisma/models.js";
 import logger from "../utils/Logger.utils.js";
 
-export const createVm = async (vm: VMCreateInput) => {
+export const CreateVmRecord = async (vm: VMCreateInput) => {
   logger.info("creating entry for vm with status creating...")
   try {
     return prisma.vM.create({ data: vm });
@@ -12,15 +12,15 @@ export const createVm = async (vm: VMCreateInput) => {
   }
 }
 
-export const findById = async (id: string) => {
+export const FindVmById = async (id: string) => {
   return prisma.vM.findUnique({ where: { id } });
 }
 
-export const findAll = async () => {
+export const FindAllVms = async () => {
   return prisma.vM.findMany();
 }
 
-export const update = async (id: string, data: Partial<VM>) => {
+export const UpdateVmRecord = async (id: string, data: Partial<VM>) => {
   try {
     return prisma.vM.update({
       where: { id },
@@ -31,7 +31,7 @@ export const update = async (id: string, data: Partial<VM>) => {
   }
 }
 
-export const deleteVm = (vmId: string) => {
+export const DeleteVmRecord = (vmId: string) => {
   try {
     return prisma.vM.delete({
       where: { vmId }
@@ -41,7 +41,7 @@ export const deleteVm = (vmId: string) => {
   }
 }
 
-export const findByStackName = async (stackName: string) => {
+export const FindVmByStackName = async (stackName: string) => {
   return prisma.vM.findUnique({
     where: { stackName }
   })
