@@ -1,7 +1,7 @@
 import { taskStatus } from "../generated/prisma/enums.js";
 import { createTask, getTaskStatus } from "../repositories/task.repository.js";
-import AppError from "../utils/AppError.utils.js";
-import logger from "../utils/Logger.utils.js";
+import AppError from "../utils/app-error.utils.js";
+import logger from "../utils/logger.utils.js";
 
 
 export const checkTaskStatus = async (id: string) => {

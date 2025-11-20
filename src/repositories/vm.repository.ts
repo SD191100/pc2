@@ -1,7 +1,7 @@
 import type { VM } from "../models/vm.model.js";
 import prisma from "../../prisma/client.js";
 import type { VMCreateInput } from "../generated/prisma/models.js";
-import logger from "../utils/Logger.utils.js";
+import logger from "../utils/logger.utils.js";
 
 export const CreateVmRecord = async (vm: VMCreateInput) => {
   logger.info("creating entry for vm with status creating...")

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { checkTaskStatus } from "../services/tasks.service.js"
 import { sendError, sendSuccess } from "../common/response.util.js";
-import logger from "../utils/Logger.utils.js";
+import logger from "../utils/logger.utils.js";
 
 export const getTask = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;

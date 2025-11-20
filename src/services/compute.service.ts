@@ -1,7 +1,7 @@
 import { LocalWorkspace, type InlineProgramArgs, type LocalWorkspaceOptions } from "@pulumi/pulumi/automation/localWorkspace.js";
 import { PulumiProxmoxProgram as PulumiProgram } from "../pulumi/pulumi.js";
-import logger from "../utils/Logger.utils.js";
-import AppError from "../utils/AppError.utils.js";
+import logger from "../utils/logger.utils.js";
+import AppError from "../utils/app-error.utils.js";
 import { Agent } from 'undici';
 import { formatDuration } from '../utils/Time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';

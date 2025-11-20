@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { CreateVMRequest } from "../types/compute.type.js";
 import { CreateOrUpdateVm, DestroyVm, GetVmState, ListVms } from "../services/compute.service.js";
-import logger from "../utils/Logger.utils.js";
+import logger from "../utils/logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { invokeTask } from "../services/tasks.service.js";
@@ -192,8 +192,14 @@ export const GetVm = async (req: Request, res: Response) => {
 
 export const UpdateVm = CreateVm;
 
-export const StartVm = () => {}
-export const StopVm = () => {}
-export const RestartVm = () => {}
+export const StartVm = (req: Request, res: Response) => {
+  
+}
+export const StopVm = (req: Request, res: Response) => {
+
+}
+export const RestartVm = (req: Request, res: Response) => {
+
+}
 
 

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { randomUUID } from "crypto";
-import logger from "../utils/Logger.utils.js";
+import logger from "../utils/logger.utils.js";
 
 export const loggingMiddleware = (req: Request, res: Response, next: NextFunction) => {
   // Generate unique request ID using crypto
