@@ -6,14 +6,18 @@ import { Agent } from 'undici';
 import { formatDuration } from '../utils/Time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
 import { createVm, deleteVm, findAll, update } from "../repositories/vm.repository.js";
-import { VmStatus } from "../generated/prisma/browser.js";
+import { taskStatus, VmStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
+import { updateTask } from "../repositories/task.repository.js";
 
-export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
+export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
   logger.debug("CreateOrUpdateVm: Starting VM creation/update", {
     vmId: vm.id,
     vmName: vm.name,
   });
+
+
+  const id = crypto.randomUUID();
 
   try {
     logger.debug("CreateOrUpdateVm: Creating or selecting stack", {
@@ -39,7 +43,6 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
     await stack.setConfig("vm:password", { value: vm.password });
     await stack.setConfig("vm:templateId", { value: vm.templateId });
 
-    const id = crypto.randomUUID();
 
     const conf = {
       id,
@@ -63,6 +66,12 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
     });
 
     await createVm(conf);
+    logger.debug("CreateOrUpdateVm: updating record for task in database from pending to inProgress", {
+      vmId: vm.id,
+      recordId: id,
+    });
+
+    await updateTask(taskId, { status: taskStatus.inProgress });
 
     logger.info("CreateOrUpdateVm: Running Pulumi stack up", {
       vmId: vm.id,
@@ -77,6 +86,11 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
     });
 
     await update(id, { status: VmStatus.completed });
+    logger.debug("CreateOrUpdateVm: Updating Task status to completed", {
+      vmId: vm.id,
+      taskId,
+    });
+    await updateTask(taskId, { status: taskStatus.completed });
 
     logger.info("CreateOrUpdateVm: VM creation/update completed successfully", {
       vmId: vm.id,
@@ -89,7 +103,9 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest) => {
       error: err.message,
       stack: err.stack,
     });
-    throw new AppError(`Failed to create/update VM`, 500 , ErrorCode.VM_CREATION_FAILED);
+    await update(id, { status: VmStatus.failed });
+    await updateTask(taskId, { status: taskStatus.failed });
+    throw new AppError(`Failed to create/update VM`, 500, ErrorCode.VM_CREATION_FAILED);
   }
 };
 

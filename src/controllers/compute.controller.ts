@@ -1,9 +1,10 @@
-import type {Request, Response } from "express";
+import type { Request, Response } from "express";
 import type { CreateVMRequest } from "../types/compute.type.js";
 import { CreateOrUpdateVm, DestroyVm, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/Logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
+import { invokeTask } from "../services/tasks.service.js";
 
 
 export const CreateVm = async (req: Request, res: Response) => {
@@ -21,7 +22,7 @@ export const CreateVm = async (req: Request, res: Response) => {
       requestId,
       providedFields: vmConfig ? Object.keys(vmConfig) : [],
     });
-    sendError(res, 400, "Missing required VM configuration.", undefined , ErrorCode.VALIDATION_ERROR)
+    sendError(res, 400, "Missing required VM configuration.", undefined, ErrorCode.VALIDATION_ERROR)
     return;
   }
 
@@ -45,8 +46,16 @@ export const CreateVm = async (req: Request, res: Response) => {
       memory: vmConfig.memory,
       storage: vmConfig.storage,
     });
+    
+    const id = crypto.randomUUID()
+    await invokeTask(id);
+    logger.info("CreateVm: VM creation Task created successfully", {
+      requestId,
+      vmId: vmConfig.id,
+      vmName: vmConfig.name,
+    });
 
-    CreateOrUpdateVm(vmConfig);
+    CreateOrUpdateVm(vmConfig, id);
 
     logger.info("CreateVm: VM creation initiated successfully", {
       requestId,
@@ -54,7 +63,7 @@ export const CreateVm = async (req: Request, res: Response) => {
       vmName: vmConfig.name,
     });
 
-    sendSuccess(res, 200, `VM Creation for '${vmConfig.name}' has been started.`);
+    sendSuccess(res, 200, `VM Creation for '${vmConfig.name}' has been started.`, { taskId: id });
   } catch (error: any) {
     logger.error("CreateVm: Failed to create VM", {
       requestId,

@@ -21,8 +21,15 @@ enum VmStatus {
   failed
 }
 
+enum taskStatus {
+  pending
+  inProgress
+  completed
+  failed
+}
+
 model VM {
-  id String @id @default(uuid()) // Primary key
+  id String @id @unique @default(uuid()) // Primary key
   vmId String @unique
   name String
   cpu Int
@@ -40,4 +47,9 @@ model VM {
   updatedAt DateTime @updatedAt
 }
 
-
+model Task {
+  id String @id @unique @default(uuid()) // Primary Key
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
