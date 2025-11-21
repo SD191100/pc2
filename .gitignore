@@ -10,3 +10,5 @@ logs/
 /src/generated/prisma
 /src/generated/prisma/client
 /src/generated
+
+todo.md

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import type { CreateVMRequest } from "../types/compute.type.js";
-import { CreateVmService, destroyVmService, GetVmState, ListVms } from "../services/compute.service.js";
+import { CreateVmService, DestroyVmService, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
@@ -60,12 +60,6 @@ export const CreateVm = async (req: Request, res: Response) => {
       vmName: vmConfig.name,
     });
     
-    await invokeTask(id);
-    logger.info("CreateVm: VM creation Task created successfully", {
-      requestId,
-      vmId: vmConfig.id,
-      vmName: vmConfig.name,
-    });
     sendSuccess(res, 202, `VM Creation for '${vmConfig.name}' has been started.`, { taskId: id });
   } catch (error: any) {
     logger.error("CreateVm: Failed to create VM", {
@@ -88,7 +82,6 @@ export const CreateVm = async (req: Request, res: Response) => {
 export const DeleteVm = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;
   const { vmId } = req.params;
-  console.log("firsttttt", vmId)
 
   logger.debug("DeleteVm: Starting VM deletion", {
     requestId,
@@ -109,20 +102,22 @@ export const DeleteVm = async (req: Request, res: Response) => {
       vmId,
     });
 
+    const id = randomUUID();
+
     const vm = await FindVmByVmId(vmId);
     if (!vm) {
       sendError(res, 404, `VM ${vmId} not found`, undefined, ErrorCode.VM_NOT_FOUND);
       return;
     }
 
-    await destroyVmService(vmId);
+    await DestroyVmService(vmId, id);
 
     logger.info("DeleteVm: VM deletion initiated successfully", {
       requestId,
       vmId,
     });
 
-    sendSuccess(res, 202, `VM destruction for ${vmId} has been started.`)
+    sendSuccess(res, 202, `VM destruction for ${vmId} has been started.`, { taskId: id })
   } catch (error: any) {
     logger.error("DeleteVm: Failed to delete VM", {
       requestId,

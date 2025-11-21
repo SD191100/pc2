@@ -8,7 +8,7 @@ import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
 import { CreateVmRecord, DeleteVmRecord, FindAllVms, FindVmByVmId, UpdateVmRecord } from "../repositories/vm.repository.js";
 import { taskStatus, VmCreationStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
-import { updateTask } from "../repositories/task.repository.js";
+import { createTask, updateTask } from "../repositories/task.repository.js";
 import { invokeTask } from "./tasks.service.js";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
@@ -132,17 +132,23 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
 };
 
 
-export const destroyVmService = async (vmId: string) => {
+export const DestroyVmService = async (vmId: string, taskId: string) => {
   const vm = await FindVmByVmId(vmId); // repository call
   if (!vm) throw new AppError("VM not found", 404);
 
+  await invokeTask(taskId);
+  logger.info("DestroyVmService: VM creation Task created successfully", {
+    vmId: vm.id,
+    vmName: vm.name,
+  });
+
   // Fire-and-forget async task
-  destroyVm(vmId)
+  destroyVm(vmId, taskId)
 
   return; // immediately return, controller can send 202
 };
 
-const destroyVm = async (vm: string) => {
+const destroyVm = async (vm: string, taskId: string) => {
   logger.debug("DestroyVm: Starting VM destruction", {
     vmId: vm,
   });
@@ -158,6 +164,7 @@ const destroyVm = async (vm: string) => {
       vmId: vm,
       stackName: vmName,
     });
+    await updateTask(taskId, { status: taskStatus.inProgress });
 
     await stack.destroy({ onOutput: (msg: string) => logger.debug("Pulumi destroy output", { vmId: vm, output: msg }) });
 
@@ -178,12 +185,15 @@ const destroyVm = async (vm: string) => {
       vmId: vm,
       stackName: vmName,
     });
+
+    await updateTask(taskId, { status: taskStatus.completed });
   } catch (error: any) {
     logger.error("DestroyVm: Failed to destroy VM", {
       vmId: vm,
       error: error.message,
       stack: error.stack,
     });
+    await updateTask(taskId, { status: taskStatus.failed });
     throw new AppError(`Stack not found: ${error.message}`, 500, ErrorCode.PULUMI_STACK_ERROR);
   }
 };
