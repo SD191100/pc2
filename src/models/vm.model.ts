@@ -1,4 +1,4 @@
-import type { VmStatus } from "../generated/prisma/enums.js";
+import type { VmCreationStatus, VmRuntimeStatus } from "../generated/prisma/enums.js";
 
 export interface VM {
   id: string;
@@ -13,7 +13,8 @@ export interface VM {
   password?: string | null;
   templateId?: string | null;
   stackName: string;
-  status: VmStatus;
+  status: VmCreationStatus;
+  runtimeStatus: VmRuntimeStatus;
   owner?: string | null;
   createdAt?: Date;
   updatedAt?: Date;

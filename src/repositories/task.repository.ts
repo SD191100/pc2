@@ -1,4 +1,4 @@
-import prisma from "../../prisma/client.js"
+import {prisma} from "../../prisma/client.js"
 import type { taskStatus } from "../generated/prisma/enums.js"
 import type { TaskCreateInput } from "../generated/prisma/models.js"
 

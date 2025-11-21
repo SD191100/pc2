@@ -3,14 +3,36 @@ import { PulumiProxmoxProgram as PulumiProgram } from "../pulumi/pulumi.js";
 import logger from "../utils/logger.utils.js";
 import AppError from "../utils/app-error.utils.js";
 import { Agent } from 'undici';
-import { formatDuration } from '../utils/Time.utils.js';
+import { formatDuration } from '../utils/time.utils.js';
 import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
-import { CreateVmRecord, DeleteVmRecord, FindAllVms, FindVmById, UpdateVmRecord } from "../repositories/vm.repository.js";
-import { taskStatus, VmStatus } from "../generated/prisma/browser.js";
+import { CreateVmRecord, DeleteVmRecord, FindAllVms, FindVmById, FindVmByVmId, UpdateVmRecord } from "../repositories/vm.repository.js";
+import { taskStatus, VmCreationStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { updateTask } from "../repositories/task.repository.js";
+import { invokeTask } from "./tasks.service.js";
 
-export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
+export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
+
+  const { id } = vm;
+
+  const vmInfo = await FindVmByVmId(String(id));
+  if (vmInfo) {
+    logger.error(`vm with ${id} already exist`)
+    throw new AppError(`VM with id ${id} already exists`, 409, ErrorCode.VM_CREATION_FAILED);
+  }
+
+  await invokeTask(taskId);
+  logger.info("CreateVm: VM creation Task created successfully", {
+    vmId: vm.id,
+    vmName: vm.name,
+  });
+
+  // Fire-and-forget: start the async task without awaiting
+  createOrUpdateVm(vm, taskId);
+  return;
+}
+
+const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
   logger.debug("CreateOrUpdateVm: Starting VM creation/update", {
     vmId: vm.id,
     vmName: vm.name,
@@ -57,7 +79,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       username: vm.username,
       password: vm.password,
       stackName: stack.name,
-      status: VmStatus.creating,
+      status: VmCreationStatus.creating,
     };
 
     logger.debug("CreateOrUpdateVm: Creating VM record in database", {
@@ -85,7 +107,7 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       recordId: id,
     });
 
-    await UpdateVmRecord(id, { status: VmStatus.completed });
+    await UpdateVmRecord(id, { status: VmCreationStatus.completed });
     logger.debug("CreateOrUpdateVm: Updating Task status to completed", {
       vmId: vm.id,
       taskId,
@@ -103,17 +125,27 @@ export const CreateOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       error: err.message,
       stack: err.stack,
     });
-    await UpdateVmRecord(id, { status: VmStatus.failed });
+    await UpdateVmRecord(id, { status: VmCreationStatus.failed });
     await updateTask(taskId, { status: taskStatus.failed });
     throw new AppError(`Failed to create/update VM`, 500, ErrorCode.VM_CREATION_FAILED);
   }
 };
 
-export const DestroyVm = async (vm: string) => {
+
+export const destroyVmService = async (vmId: string) => {
+  const vm = await FindVmByVmId(vmId); // repository call
+  if (!vm) throw new AppError("VM not found", 404);
+
+  // Fire-and-forget async task
+  destroyVm(vmId)
+
+  return; // immediately return, controller can send 202
+};
+
+const destroyVm = async (vm: string) => {
   logger.debug("DestroyVm: Starting VM destruction", {
     vmId: vm,
   });
-
   try {
     logger.debug("DestroyVm: Selecting stack", {
       vmId: vm,

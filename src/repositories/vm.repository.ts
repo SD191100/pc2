@@ -1,5 +1,5 @@
 import type { VM } from "../models/vm.model.js";
-import prisma from "../../prisma/client.js";
+import {prisma} from "../../prisma/client.js";
 import type { VMCreateInput } from "../generated/prisma/models.js";
 import logger from "../utils/logger.utils.js";
 
@@ -14,6 +14,10 @@ export const CreateVmRecord = async (vm: VMCreateInput) => {
 
 export const FindVmById = async (id: string) => {
   return prisma.vM.findUnique({ where: { id } });
+}
+
+export const FindVmByVmId = async (vmId: string) => {
+  return prisma.vM.findUnique({ where: {vmId}});
 }
 
 export const FindAllVms = async () => {

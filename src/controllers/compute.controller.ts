@@ -1,10 +1,11 @@
 import type { Request, Response } from "express";
 import type { CreateVMRequest } from "../types/compute.type.js";
-import { CreateOrUpdateVm, DestroyVm, GetVmState, ListVms } from "../services/compute.service.js";
+import { CreateVmService, destroyVmService, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { invokeTask } from "../services/tasks.service.js";
+import { FindVmByVmId } from "../repositories/vm.repository.js";
 
 
 export const CreateVm = async (req: Request, res: Response) => {
@@ -46,24 +47,25 @@ export const CreateVm = async (req: Request, res: Response) => {
       memory: vmConfig.memory,
       storage: vmConfig.storage,
     });
-    
-    const id = crypto.randomUUID()
-    await invokeTask(id);
-    logger.info("CreateVm: VM creation Task created successfully", {
-      requestId,
-      vmId: vmConfig.id,
-      vmName: vmConfig.name,
-    });
 
-    CreateOrUpdateVm(vmConfig, id);
+
+    const id = crypto.randomUUID()
+
+    await CreateVmService(vmConfig, id);
 
     logger.info("CreateVm: VM creation initiated successfully", {
       requestId,
       vmId: vmConfig.id,
       vmName: vmConfig.name,
     });
-
-    sendSuccess(res, 200, `VM Creation for '${vmConfig.name}' has been started.`, { taskId: id });
+    
+    await invokeTask(id);
+    logger.info("CreateVm: VM creation Task created successfully", {
+      requestId,
+      vmId: vmConfig.id,
+      vmName: vmConfig.name,
+    });
+    sendSuccess(res, 202, `VM Creation for '${vmConfig.name}' has been started.`, { taskId: id });
   } catch (error: any) {
     logger.error("CreateVm: Failed to create VM", {
       requestId,
@@ -71,7 +73,13 @@ export const CreateVm = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    sendError(res, 500, `internal server error`, undefined, ErrorCode.INTERNAL_SERVER_ERROR);
+
+    // Handle different error types
+    if (error.statusCode === 409) {
+      sendError(res, 409, error.message, undefined, error.errorCode);
+    } else {
+      sendError(res, 500, `internal server error`, undefined, ErrorCode.INTERNAL_SERVER_ERROR);
+    }
   }
 };
 
@@ -79,6 +87,7 @@ export const CreateVm = async (req: Request, res: Response) => {
 export const DeleteVm = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;
   const { vmId } = req.params;
+  console.log("firsttttt", vmId)
 
   logger.debug("DeleteVm: Starting VM deletion", {
     requestId,
@@ -99,7 +108,13 @@ export const DeleteVm = async (req: Request, res: Response) => {
       vmId,
     });
 
-    DestroyVm(vmId);
+    const vm = await FindVmByVmId(vmId);
+    if (!vm) {
+      sendError(res, 404, `VM ${vmId} not found`, undefined, ErrorCode.VM_NOT_FOUND);
+      return;
+    }
+
+    await destroyVmService(vmId);
 
     logger.info("DeleteVm: VM deletion initiated successfully", {
       requestId,
@@ -130,7 +145,7 @@ export const GetVms = async (req: Request, res: Response) => {
   try {
     logger.info("GetVms: Retrieving VMs from service", {
       requestId,
-    });   
+    });
 
     const vms = await ListVms();
 
@@ -193,7 +208,7 @@ export const GetVm = async (req: Request, res: Response) => {
 export const UpdateVm = CreateVm;
 
 export const StartVm = (req: Request, res: Response) => {
-  
+  // const { }
 }
 export const StopVm = (req: Request, res: Response) => {
 
