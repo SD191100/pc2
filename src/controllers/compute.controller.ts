@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import type { CreateVMRequest } from "../types/compute.type.js";
 import { CreateVmService, destroyVmService, GetVmState, ListVms } from "../services/compute.service.js";
 import logger from "../utils/logger.utils.js";
@@ -49,7 +50,7 @@ export const CreateVm = async (req: Request, res: Response) => {
     });
 
 
-    const id = crypto.randomUUID()
+    const id = randomUUID()
 
     await CreateVmService(vmConfig, id);
 
