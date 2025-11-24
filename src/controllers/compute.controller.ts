@@ -7,6 +7,7 @@ import { sendError, sendPaginated, sendSuccess } from "../common/response.util.j
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { invokeTask } from "../services/tasks.service.js";
 import { FindVmByVmId } from "../repositories/vm.repository.js";
+import { FetchAllState } from "../utils/state-fetcher.utils.js";
 
 
 export const CreateVm = async (req: Request, res: Response) => {
@@ -205,6 +206,8 @@ export const UpdateVm = CreateVm;
 
 export const StartVm = (req: Request, res: Response) => {
   // const { }
+  //
+  FetchAllState();
 }
 export const StopVm = (req: Request, res: Response) => {
 

@@ -44,6 +44,8 @@ export const PulumiProxmoxProgram = async () => {
       full: true,
     },
 
+    tags: ['custom'],
+
     cpu: {
       cores: cpuCores || 2,
       sockets: 1,
@@ -73,34 +75,23 @@ export const PulumiProxmoxProgram = async () => {
 
     bootOrders: bootOrder,
     initialization: {
-      // type: "nocloud",
-      // interface: "ide2",
-      // datastoreId: datastoreId,
-      // userDataFileId: cloudInitFile.id,
-      // networkDataFileId: networkConfigFile.id,
-      //
-      //
-      type: "configdrive2", // ensure it's cloud-init
-      datastoreId: datastoreId, // where the cloud-init disk lives
-      // IP configuration
+      type: "nocloud",
+      interface: "ide2",
+      datastoreId: datastoreId,
       ipConfigs: [{
         ipv4: {
-          address: ipAddress, // static IP
+          address: ipAddress,
           gateway: gateway,
         },
       }],
-      // DNS configuration
       dns: {
         servers: ["1.1.1.1", "8.8.8.8"],
         domain: "example.local",
       },
-      // User account
       userAccount: {
         username: username,
-        password: password, // optional if using SSH keys only
-        keys: [
-          sshKey, // your public key
-        ],
+        password: password,
+        keys: [sshKey],
       },
     },
 

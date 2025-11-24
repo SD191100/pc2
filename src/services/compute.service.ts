@@ -1,24 +1,35 @@
-import { LocalWorkspace, type InlineProgramArgs, type LocalWorkspaceOptions } from "@pulumi/pulumi/automation/localWorkspace.js";
+import {
+  LocalWorkspace,
+  type InlineProgramArgs,
+  type LocalWorkspaceOptions,
+} from "@pulumi/pulumi/automation/localWorkspace.js";
 import { PulumiProxmoxProgram as PulumiProgram } from "../pulumi/pulumi.js";
 import logger from "../utils/logger.utils.js";
 import AppError from "../utils/app-error.utils.js";
-import { Agent } from 'undici';
-import { formatDuration } from '../utils/time.utils.js';
-import type { VmInfo, CreateVMRequest } from '../types/compute.type.js';
-import { CreateVmRecord, DeleteVmRecord, FindAllVms, FindVmByVmId, UpdateVmRecord } from "../repositories/vm.repository.js";
+import type { VmInfo, CreateVMRequest } from "../types/compute.type.js";
+import {
+  CreateVmRecord,
+  DeleteVmRecord,
+  FindAllVms,
+  FindVmByVmId,
+  UpdateVmRecord,
+} from "../repositories/vm.repository.js";
 import { taskStatus, VmCreationStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
-import { createTask, updateTask } from "../repositories/task.repository.js";
+import { updateTask } from "../repositories/task.repository.js";
 import { invokeTask } from "./tasks.service.js";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
-
   const { id } = vm;
 
   const vmInfo = await FindVmByVmId(String(id));
   if (vmInfo) {
-    logger.error(`vm with ${id} already exist`)
-    throw new AppError(`VM with id ${id} already exists`, 409, ErrorCode.VM_CREATION_FAILED);
+    logger.error(`vm with ${id} already exist`);
+    throw new AppError(
+      `VM with id ${id} already exists`,
+      409,
+      ErrorCode.VM_CREATION_FAILED
+    );
   }
 
   await invokeTask(taskId);
@@ -30,14 +41,13 @@ export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   // Fire-and-forget: start the async task without awaiting
   createOrUpdateVm(vm, taskId);
   return;
-}
+};
 
 const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
   logger.debug("CreateOrUpdateVm: Starting VM creation/update", {
     vmId: vm.id,
     vmName: vm.name,
   });
-
 
   const id = crypto.randomUUID();
 
@@ -65,7 +75,6 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
     await stack.setConfig("vm:password", { value: vm.password });
     await stack.setConfig("vm:templateId", { value: vm.templateId });
 
-
     const conf = {
       id,
       vmId: String(vm.id),
@@ -88,10 +97,13 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
     });
 
     await CreateVmRecord(conf);
-    logger.debug("CreateOrUpdateVm: updating record for task in database from pending to inProgress", {
-      vmId: vm.id,
-      recordId: id,
-    });
+    logger.debug(
+      "CreateOrUpdateVm: updating record for task in database from pending to inProgress",
+      {
+        vmId: vm.id,
+        recordId: id,
+      }
+    );
 
     await updateTask(taskId, { status: taskStatus.inProgress });
 
@@ -100,7 +112,10 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       stackName: stack.name,
     });
 
-    await stack.up({ onOutput: (msg: string) => logger.debug("Pulumi output", { vmId: vm.id, output: msg }) });
+    await stack.up({
+      onOutput: (msg: string) =>
+        logger.debug("Pulumi output", { vmId: vm.id, output: msg }),
+    });
 
     logger.debug("CreateOrUpdateVm: Updating VM status to completed", {
       vmId: vm.id,
@@ -127,10 +142,13 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
     });
     await UpdateVmRecord(id, { status: VmCreationStatus.failed });
     await updateTask(taskId, { status: taskStatus.failed });
-    throw new AppError(`Failed to create/update VM`, 500, ErrorCode.VM_CREATION_FAILED);
+    throw new AppError(
+      `Failed to create/update VM`,
+      500,
+      ErrorCode.VM_CREATION_FAILED
+    );
   }
 };
-
 
 export const DestroyVmService = async (vmId: string, taskId: string) => {
   const vm = await FindVmByVmId(vmId); // repository call
@@ -143,7 +161,7 @@ export const DestroyVmService = async (vmId: string, taskId: string) => {
   });
 
   // Fire-and-forget async task
-  destroyVm(vmId, taskId)
+  destroyVm(vmId, taskId);
 
   return; // immediately return, controller can send 202
 };
@@ -166,14 +184,20 @@ const destroyVm = async (vm: string, taskId: string) => {
     });
     await updateTask(taskId, { status: taskStatus.inProgress });
 
-    await stack.destroy({ onOutput: (msg: string) => logger.debug("Pulumi destroy output", { vmId: vm, output: msg }) });
+    await stack.destroy({
+      onOutput: (msg: string) =>
+        logger.debug("Pulumi destroy output", { vmId: vm, output: msg }),
+    });
 
     logger.debug("DestroyVm: Removing stack from workspace", {
       vmId: vm,
       stackName: vmName,
     });
 
-    await stack.workspace.removeStack(vmName, { force: true, preserveConfig: false });
+    await stack.workspace.removeStack(vmName, {
+      force: true,
+      preserveConfig: false,
+    });
 
     logger.debug("DestroyVm: Deleting VM record from database", {
       vmId: vm,
@@ -194,103 +218,41 @@ const destroyVm = async (vm: string, taskId: string) => {
       stack: error.stack,
     });
     await updateTask(taskId, { status: taskStatus.failed });
-    throw new AppError(`Stack not found: ${error.message}`, 500, ErrorCode.PULUMI_STACK_ERROR);
+    throw new AppError(
+      `Stack not found: ${error.message}`,
+      500,
+      ErrorCode.PULUMI_STACK_ERROR
+    );
   }
 };
 
 export const ListVms = async () => {
   logger.debug("ListVms: Starting VM list retrieval");
 
-  const nodeName = process.env.PROXMOX_NODE || "proxmox";
-  const tokenId = process.env.PROXMOX_API_TOKEN_ID;
-  const tokenSecret = process.env.PROXMOX_API_TOKEN_SECRET;
-  const endpoint = process.env.PROXMOX_ENDPOINT;
-  const sslVerify = process.env.PROXMOX_SSL_VERIFY?.toLowerCase() !== 'false';
-
-  if (!sslVerify) {
-    logger.warn("ListVms: SSL verification is disabled - insecure configuration", {
-      endpoint,
-    });
-  }
-
-  const dispatcher = new Agent({
-    connect: {
-      rejectUnauthorized: sslVerify,
-    },
-  });
-
-  const headers = {
-    method: 'GET',
-    headers: {
-      'Authorization': `PVEAPIToken=${tokenId}=${tokenSecret}`,
-    },
-    dispatcher: dispatcher,
-  };
-
   try {
-    logger.debug("ListVms: Fetching VMs from Proxmox API", {
-      endpoint,
-      nodeName,
-    });
-
-    const response = await fetch(`${endpoint}/api2/json/nodes/${nodeName}/qemu/`, headers);
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      logger.error("ListVms: Proxmox API error", {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody,
-      });
-      throw new Error(`Proxmox API Error: ${response.status} ${response.statusText}. Details: ${errorBody}`);
-    }
-
-    const vmStatus = await response.json();
-    let allVms: VmInfo[] = [];
-    const vmData = vmStatus.data;
-
-    logger.debug("ListVms: Processing Proxmox VMs", {
-      totalVmsFromProxmox: vmData.length,
-    });
-
-    for (let i = 0; i < vmData.length; i++) {
-      if (vmData[i].template == 1) {
-        logger.debug("ListVms: Skipping template VM", {
-          vmId: vmData[i].vmid,
-          vmName: vmData[i].name,
-        });
-        continue;
-      }
-      const time = formatDuration(vmData[i].uptime);
-      allVms.push({
-        vmId: vmData[i].vmid,
-        cpus: vmData[i].cpus,
-        memory: vmData[i].mem,
-        name: vmData[i].name,
-        status: vmData[i].status,
-        uptime: time,
-      });
-    }
-
-    logger.debug("ListVms: Fetching VMs from database", {
-      proxmoxVmCount: allVms.length,
-    });
 
     const output = await FindAllVms();
 
     logger.debug("ListVms: Filtering VMs by database records", {
       databaseVmCount: output.length,
-      proxmoxVmCount: allVms.length,
     });
 
     let filteredOutput: VmInfo[] = [];
 
     for (let i = 0; i < output.length; i++) {
-      for (let j = 0; j < allVms.length; j++) {
-        if (output[i]?.vmId === allVms[j]?.vmId && allVms[j] !== undefined) {
-          filteredOutput.push(allVms[j]!);
-        }
-      }
+      const item = output[i];
+      if (!item || item.vmId === undefined) continue;
+
+      const outputVm: VmInfo = {
+        vmId: Number(item.vmId),
+        cpus: Number(item.cpu),
+        memory: Number(item.memory),
+        name: item.name || "",
+        status: item.runtimeStatus || "",
+        uptime: "",
+      };
+
+      filteredOutput.push(outputVm);
     }
 
     logger.info("ListVms: VM list retrieved successfully", {
@@ -300,12 +262,14 @@ export const ListVms = async () => {
     return filteredOutput;
   } catch (error: any) {
     logger.error("ListVms: Failed to retrieve VM list", {
-      endpoint,
-      nodeName,
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("failed to retrieve VM list", 500, ErrorCode.VM_STATE_FETCH_FAILED);
+    throw new AppError(
+      "failed to retrieve VM list",
+      500,
+      ErrorCode.VM_STATE_FETCH_FAILED
+    );
   }
 };
 
@@ -314,61 +278,19 @@ export const GetVmState = async (vmId: string) => {
     vmId,
   });
 
-  const nodeName = process.env.PROXMOX_NODE || "proxmox";
-  const tokenId = process.env.PROXMOX_API_TOKEN_ID;
-  const tokenSecret = process.env.PROXMOX_API_TOKEN_SECRET;
-  const endpoint = process.env.PROXMOX_ENDPOINT;
-  const sslVerify = process.env.PROXMOX_SSL_VERIFY?.toLowerCase() !== 'false';
-
-  if (!sslVerify) {
-    logger.warn("GetVmState: SSL verification is disabled - insecure configuration", {
-      endpoint,
-    });
-  }
-
-  const dispatcher = new Agent({
-    connect: {
-      rejectUnauthorized: sslVerify,
-    },
-  });
-
-  const headers = {
-    method: 'GET',
-    headers: {
-      'Authorization': `PVEAPIToken=${tokenId}=${tokenSecret}`,
-    },
-    dispatcher: dispatcher,
-  };
-
   try {
-    logger.debug("GetVmState: Fetching VM state from Proxmox API", {
-      vmId,
-      endpoint,
-      nodeName,
-    });
-
-    const response = await fetch(`${endpoint}/api2/json/nodes/${nodeName}/qemu/${vmId}/status/current`, headers);
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      logger.error("GetVmState: Proxmox API error", {
-        vmId,
-        status: response.status,
-        statusText: response.statusText,
-        errorBody,
-      });
-      throw new Error(`Proxmox API Error: ${response.status} ${response.statusText}. Details: ${errorBody}`);
+    const vm = await FindVmByVmId(vmId);
+    if (!vm) {
+      logger.error("GetVmState: Failed to retrieve VM", {});
+      throw new AppError("failed to retrieve VM", 404, ErrorCode.VM_NOT_FOUND);
     }
 
-    const vmStatus = await response.json();
-    const time = formatDuration(vmStatus.data.uptime);
     const output = {
-      vmId: vmStatus.data.vmid,
-      cpus: vmStatus.data.cpus,
-      memory: vmStatus.data.mem,
-      name: vmStatus.data.name,
-      status: vmStatus.data.status,
-      uptime: time,
+      vmId: vm.vmId,
+      cpus: vm.cpu,
+      memory: vm.memory,
+      name: vm.name,
+      status: vm.runtimeStatus,
     };
 
     logger.debug("GetVmState: VM state retrieved successfully", {
@@ -381,12 +303,14 @@ export const GetVmState = async (vmId: string) => {
   } catch (error: any) {
     logger.error("GetVmState: Failed to fetch VM state", {
       vmId,
-      endpoint,
-      nodeName,
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("failed to fetch vm state", 500, ErrorCode.VM_STATE_FETCH_FAILED);
+    throw new AppError(
+      "failed to fetch vm state",
+      500,
+      ErrorCode.VM_STATE_FETCH_FAILED
+    );
   }
 };
 
@@ -405,7 +329,7 @@ const selectStack = async (vmId: string) => {
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: '/home/sd/.pulumi',
+    workDir: "/home/sd/.pulumi",
   };
 
   try {
@@ -430,7 +354,11 @@ const selectStack = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError(`Pulumi operation failed for stack ${stackName}`, 500, ErrorCode.PULUMI_STACK_ERROR);
+    throw new AppError(
+      `Pulumi operation failed for stack ${stackName}`,
+      500,
+      ErrorCode.PULUMI_STACK_ERROR
+    );
   }
 };
 
@@ -444,12 +372,12 @@ export const createOrSelectStack = async (vmId: string) => {
 
   const args: InlineProgramArgs = {
     stackName,
-    projectName: 'provisioner-ts',
+    projectName: "provisioner-ts",
     program: PulumiProgram,
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: '/home/sd/.pulumi',
+    workDir: "/home/sd/.pulumi",
   };
 
   try {
@@ -474,7 +402,10 @@ export const createOrSelectStack = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError(`Pulumi operation failed for stack ${stackName}`, 500, ErrorCode.PULUMI_STACK_ERROR);
+    throw new AppError(
+      `Pulumi operation failed for stack ${stackName}`,
+      500,
+      ErrorCode.PULUMI_STACK_ERROR
+    );
   }
 };
-

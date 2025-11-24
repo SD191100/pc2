@@ -20,15 +20,67 @@ export const CreateVmRecord = async (vm: VMCreateInput) => {
 }
 
 export const FindVmById = async (id: string) => {
-  return prisma.vM.findUnique({ where: { id } });
+  try {
+    const vm = await prisma.vM.findUnique({ where: { id } });
+    
+    if (!vm) {
+      logger.warn("FindVmById: VM not found", { recordId: id });
+      throw new AppError(`VM with record id ${id} not found`, 404, ErrorCode.VM_NOT_FOUND);
+    }
+    
+    return vm;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      throw error;
+    }
+    logger.error("FindVmById: Failed to retrieve VM", {
+      recordId: id,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new AppError("Failed to retrieve VM from database", 500, ErrorCode.DATABASE_ERROR);
+  }
 }
 
 export const FindVmByVmId = async (vmId: string) => {
-  return prisma.vM.findUnique({ where: {vmId}});
+  try {
+    const vm = await prisma.vM.findUnique({ where: {vmId}});
+    
+    if (!vm) {
+      logger.warn("FindVmByVmId: VM not found", { vmId });
+      throw new AppError(`VM with vmId ${vmId} not found`, 404, ErrorCode.VM_NOT_FOUND);
+    }
+    
+    return vm;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      throw error;
+    }
+    logger.error("FindVmByVmId: Failed to retrieve VM", {
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new AppError("Failed to retrieve VM from database", 500, ErrorCode.DATABASE_ERROR);
+  }
 }
 
 export const FindAllVms = async () => {
-  return prisma.vM.findMany();
+  try {
+    const vms = await prisma.vM.findMany();
+    
+    logger.debug("FindAllVms: Retrieved VMs successfully", {
+      vmCount: vms.length,
+    });
+    
+    return vms;
+  } catch (error: any) {
+    logger.error("FindAllVms: Failed to retrieve VMs", {
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new AppError("Failed to retrieve VMs from database", 500, ErrorCode.DATABASE_ERROR);
+  }
 }
 
 export const UpdateVmRecord = async (id: string, data: Partial<VM>) => {
@@ -63,7 +115,26 @@ export const DeleteVmRecord = async (vmId: string) => {
 }
 
 export const FindVmByStackName = async (stackName: string) => {
-  return prisma.vM.findUnique({
-    where: { stackName }
-  })
+  try {
+    const vm = await prisma.vM.findUnique({
+      where: { stackName }
+    });
+    
+    if (!vm) {
+      logger.warn("FindVmByStackName: VM not found", { stackName });
+      throw new AppError(`VM with stack name ${stackName} not found`, 404, ErrorCode.VM_NOT_FOUND);
+    }
+    
+    return vm;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      throw error;
+    }
+    logger.error("FindVmByStackName: Failed to retrieve VM", {
+      stackName,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new AppError("Failed to retrieve VM from database", 500, ErrorCode.DATABASE_ERROR);
+  }
 }

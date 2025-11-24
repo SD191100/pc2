@@ -36,11 +36,28 @@ export const updateTask = async (id: string, data: { status: string }) => {
 }
 
 export const getTaskStatus = async (id: string) => {
-
-  return prisma.task.findUnique({
-    where: { id }
-  })
-;
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id }
+    });
+    
+    if (!task) {
+      logger.warn("getTaskStatus: Task not found", { taskId: id });
+      throw new AppError(`Task with id ${id} not found`, 404, ErrorCode.TASK_NOT_FOUND);
+    }
+    
+    return task;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      throw error;
+    }
+    logger.error("getTaskStatus: Failed to retrieve task", {
+      taskId: id,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new AppError("Failed to retrieve task from database", 500, ErrorCode.DATABASE_ERROR);
+  }
 }
 
 export const deleteTask = async (id: string) => {

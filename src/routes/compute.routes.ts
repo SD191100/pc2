@@ -8,7 +8,7 @@ router.get('/:vmId', GetVm);
 router.patch("/:vmId", UpdateVm)
 router.delete("/:vmId", DeleteVm);
 
-router.post("/:vmId/start", StartVm)
+router.get("/:vmId/start", StartVm)
 router.post("/:vmId/stop", StopVm)
 router.post("/:vmId/restart", RestartVm)
 
