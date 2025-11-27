@@ -22,7 +22,7 @@ export const checkTaskStatus = async (id: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError(`Failed to retrieve task status`, 500, ErrorCode.INTERNAL_SERVER_ERROR);
+    throw new AppError(`Failed to retrieve task status`, 500, ErrorCode.INTERNAL_SERVER_ERROR, error.details);
   }
 }
 
@@ -39,6 +39,6 @@ export const invokeTask = async (id: string) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("Failed to create task", 500, ErrorCode.INTERNAL_SERVER_ERROR);
+    throw new AppError("Failed to create task", 500, ErrorCode.INTERNAL_SERVER_ERROR, error.details);
   }
 }

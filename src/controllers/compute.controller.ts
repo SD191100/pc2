@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import type { CreateVMRequest } from "../types/compute.type.js";
-import { CreateVmService, DestroyVmService, GetVmState, ListVms } from "../services/compute.service.js";
+import { CreateVmService, DestroyVmService, GetVmState, ListVms, RestartVmService, StartVmService, StopVmService } from "../services/compute.service.js";
 import logger from "../utils/logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
@@ -74,7 +74,7 @@ export const CreateVm = async (req: Request, res: Response) => {
     if (error.statusCode === 409) {
       sendError(res, 409, error.message, undefined, error.errorCode);
     } else {
-      sendError(res, 500, `internal server error`, undefined, ErrorCode.INTERNAL_SERVER_ERROR);
+      sendError(res, 500, `internal server error`, error.message, error.errorCode)
     }
   }
 };
@@ -126,7 +126,7 @@ export const DeleteVm = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    sendError(res, 500, `internal server error while deleting vm`, undefined, ErrorCode.INTERNAL_SERVER_ERROR)
+    sendError(res, 500, `internal server error while deleting vm`, error.message, error.errorCode)
   }
 };
 
@@ -157,7 +157,7 @@ export const GetVms = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    sendError(res, 500, `failed to retrieve VMs`, undefined, ErrorCode.INTERNAL_SERVER_ERROR)
+    sendError(res, 500, `failed to retrieve VMs`, error.message, error.errorCode)
   }
 };
 
@@ -198,22 +198,101 @@ export const GetVm = async (req: Request, res: Response) => {
       error: error.message,
       stack: error.stack,
     });
-    sendError(res, 500, `Failed to retrieve VM state`, undefined, ErrorCode.VM_STATE_FETCH_FAILED)
+    sendError(res, 500, `Failed to retrieve VM state`, error.message, error.errorCode)
   }
 };
 
 export const UpdateVm = CreateVm;
 
-export const StartVm = (req: Request, res: Response) => {
-  // const { }
-  //
-  FetchAllState();
-}
-export const StopVm = (req: Request, res: Response) => {
+export const StartVm = async (req: Request, res: Response) => {
+  const requestId = (req as any).requestId;
+  const { vmId } = req.params;
 
-}
-export const RestartVm = (req: Request, res: Response) => {
+  if (vmId === undefined) {
+    logger.warn("StartVm: Validation failed - vmId is required", {
+      requestId,
+    });
+    sendError(res, 400, "VM id is required.", undefined, ErrorCode.VALIDATION_ERROR);
+    return;
+  }
+  
+  try {
+    logger.info("StartVm: Starting VM", {
+      requestId,
+      vmId,
+    });
 
+    await StartVmService(vmId);
+    sendSuccess(res, 202, `VM start for ${vmId} has been started.`)
+  } catch (error: any) {
+    logger.error("StartVm: Failed to start VM", {
+      requestId,
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    sendError(res, error.statusCode || 500, error.message, undefined, error.errorCode)
+  }
+}
+export const StopVm = async (req: Request, res: Response) => {
+  const requestId = (req as any).requestId;
+  const { vmId } = req.params;
+
+  if (vmId === undefined) {
+    logger.warn("StopVm: Validation failed - vmId is required", {
+      requestId,
+    });
+    sendError(res, 400, "VM id is required.", undefined, ErrorCode.VALIDATION_ERROR);
+    return;
+  }
+
+  try {
+    logger.info("StopVm: Stopping VM", {
+      requestId,
+      vmId,
+    });
+
+    await StopVmService(vmId);
+    sendSuccess(res, 202, `VM stop for ${vmId} has been started.`)
+  } catch (error: any) {
+    logger.error("StopVm: Failed to stop VM", {
+      requestId,
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    sendError(res, error.statusCode || 500, error.message, undefined, error.errorCode)
+  }
+}
+export const RestartVm = async (req: Request, res: Response) => {
+  const requestId = (req as any).requestId;
+  const { vmId } = req.params;
+
+  if (vmId === undefined) {
+    logger.warn("RestartVm: Validation failed - vmId is required", {
+      requestId,
+    });
+    sendError(res, 400, "VM id is required.", undefined, ErrorCode.VALIDATION_ERROR);
+    return;
+  }
+
+  try {
+    logger.info("RestartVm: Restarting VM", {
+      requestId,
+      vmId,
+    });
+
+    await RestartVmService(vmId);    
+    sendSuccess(res, 202, `VM restart for ${vmId} has been started.`)
+  } catch (error: any) {
+    logger.error("RestartVm: Failed to restart VM", {
+      requestId,
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    sendError(res, error.statusCode || 500, error.message, undefined, error.errorCode)
+  }
 }
 
 

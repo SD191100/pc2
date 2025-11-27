@@ -33,7 +33,7 @@ export const getTask = async (req: Request, res: Response) => {
     if (error.statusCode === 404) {
       sendError(res, 404, error.message, undefined, error.errorCode);
     } else {
-      sendError(res, 500, `internal server error`, undefined, ErrorCode.INTERNAL_SERVER_ERROR);
+      sendError(res, 500, `internal server error`, error.message, error.errorCode);
     }
   }
 }

@@ -18,6 +18,9 @@ import { taskStatus, VmCreationStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { updateTask } from "../repositories/task.repository.js";
 import { invokeTask } from "./tasks.service.js";
+import { config } from "../config/index.js";
+import { Agent } from "undici";
+import { ProxmoxApi } from "../utils/proxmox-api.utils.js";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   const { id } = vm;
@@ -409,3 +412,205 @@ export const createOrSelectStack = async (vmId: string) => {
     );
   }
 };
+
+export const StartVmService = async (vmId: string) => {
+  const vm = await FindVmByVmId(vmId);
+  if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
+  
+  if (vm.runtimeStatus === "running") {
+    throw new AppError("VM is already running", 409, ErrorCode.VM_ALREADY_STARTED);
+  }
+
+  try {
+    StartVm(vmId);
+  } catch (error: any) {
+    logger.error("StartVmService: Failed to start VM", {
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    // Map specific Proxmox errors to user-friendly codes
+    let userErrorCode = ErrorCode.VM_START_FAILED;
+    let userMessage = "Failed to start VM";
+    
+    if (error.details?.apiError?.includes("permission denied")) {
+      userErrorCode = ErrorCode.PERMISSION_DENIED;
+      userMessage = "Insufficient permissions to start VM";
+    } else if (error.details?.apiError?.includes("node offline")) {
+      userErrorCode = ErrorCode.HYPERVISOR_OFFLINE;
+      userMessage = "Hypervisor node is offline";
+    } else if (error.details?.apiError?.includes("VM not found")) {
+      userErrorCode = ErrorCode.VM_NOT_FOUND;
+      userMessage = "VM not found";
+    }
+    
+    throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
+  }
+}
+
+const StartVm = async (vmId: string) => {
+  const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/start`);
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    const errorDetails = {
+      status: res.status,
+      statusText: res.statusText,
+      apiError: errorBody,
+      endpoint: `/qemu/${vmId}/status/start`
+    };
+    
+    logger.error("StartVmService: Proxmox API error", errorDetails);
+    
+    throw new AppError(
+      `Proxmox API Error: ${res.status} ${res.statusText}`,
+      res.status,
+      ErrorCode.VM_START_FAILED,
+      errorDetails
+    );
+  }
+
+  const startRes: any = await res.json();
+
+  logger.info("StartVmService: VM started successfully", {
+    vmId,
+    startRes,
+  });
+}
+
+export const StopVmService = async (vmId: string) => {
+  const vm = await FindVmByVmId(vmId);
+  if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
+  
+  if (vm.runtimeStatus === "stopped") {
+    throw new AppError("VM is already stopped", 409, ErrorCode.VM_ALREADY_STOPPED);
+  }
+
+  try {
+    await StopVm(vmId);
+  } catch (error: any) {
+    logger.error("StopVmService: Failed to stop VM", {
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    // Map specific Proxmox errors to user-friendly codes
+    let userErrorCode = ErrorCode.VM_STOP_FAILED;
+    let userMessage = "Failed to stop VM";
+    
+    if (error.details?.apiError?.includes("permission denied")) {
+      userErrorCode = ErrorCode.PERMISSION_DENIED;
+      userMessage = "Insufficient permissions to stop VM";
+    } else if (error.details?.apiError?.includes("node offline")) {
+      userErrorCode = ErrorCode.HYPERVISOR_OFFLINE;
+      userMessage = "Hypervisor node is offline";
+    } else if (error.details?.apiError?.includes("VM not found")) {
+      userErrorCode = ErrorCode.VM_NOT_FOUND;
+      userMessage = "VM not found";
+    }
+    
+    throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
+  }
+}
+
+const StopVm = async (vmId: string) => {
+  const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/stop`);
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    const errorDetails = {
+      status: res.status,
+      statusText: res.statusText,
+      apiError: errorBody,
+      endpoint: `/qemu/${vmId}/status/stop`
+    };
+    
+    logger.error("StopVmService: Proxmox API error", errorDetails);
+    
+    throw new AppError(
+      `Proxmox API Error: ${res.status} ${res.statusText}`,
+      res.status,
+      ErrorCode.VM_STOP_FAILED,
+      errorDetails
+    );
+  }
+
+  const stopRes: any = await res.json();
+
+  logger.info("StopVmService: VM stopped successfully", {
+    vmId,
+    stopRes,
+  });
+}
+
+export const RestartVmService = async (vmId: string) => {
+  const vm = await FindVmByVmId(vmId);
+  if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
+  
+  if (vm.runtimeStatus === "stopped") {
+    throw new AppError("VM is already stopped", 409, ErrorCode.VM_ALREADY_STOPPED);
+  }
+
+  try {
+    await RestartVm(vmId);
+  } catch (error: any) {
+    logger.error("RestartVmService: Failed to restart VM", {
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    // Map specific Proxmox errors to user-friendly codes
+    let userErrorCode = ErrorCode.VM_RESTART_FAILED;
+    let userMessage = "Failed to restart VM";
+    
+    if (error.details?.apiError?.includes("permission denied")) {
+      userErrorCode = ErrorCode.PERMISSION_DENIED;
+      userMessage = "Insufficient permissions to restart VM";
+    } else if (error.details?.apiError?.includes("node offline")) {
+      userErrorCode = ErrorCode.HYPERVISOR_OFFLINE;
+      userMessage = "Hypervisor node is offline";
+    } else if (error.details?.apiError?.includes("VM not found")) {
+      userErrorCode = ErrorCode.VM_NOT_FOUND;
+      userMessage = "VM not found";
+    } else if (error.details?.apiError?.includes("VM is not running")) {
+      userErrorCode = ErrorCode.VM_ALREADY_STOPPED;
+      userMessage = "VM must be running to restart";
+    }
+    
+    throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
+  }
+}
+
+const RestartVm = async (vmId: string) => {
+  const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/reboot`);
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    const errorDetails = {
+      status: res.status,
+      statusText: res.statusText,
+      apiError: errorBody,
+      endpoint: `/qemu/${vmId}/status/reboot`
+    };
+    
+    logger.error("RestartVmService: Proxmox API error", errorDetails);
+    
+    throw new AppError(
+      `Proxmox API Error: ${res.status} ${res.statusText}`,
+      res.status,
+      ErrorCode.VM_RESTART_FAILED,
+      errorDetails
+    );
+  }
+
+  const restartRes: any = await res.json();
+
+  logger.info("RestartVmService: VM restarted successfully", {
+    vmId,
+    restartRes,
+  });
+}
+

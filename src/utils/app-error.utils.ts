@@ -2,8 +2,9 @@ class AppError extends Error {
   public readonly statusCode: number;
   public readonly errorCode: string;
   public readonly isoperational: boolean;
+  public readonly details?: any;
 
-  constructor (message: string, statusCode: number, errorCode?: string) {
+  constructor (message: string, statusCode: number, errorCode?: string, details?: any) {
     super(
       message
     )
@@ -11,6 +12,7 @@ class AppError extends Error {
     this.statusCode = statusCode;
     this.errorCode = errorCode || "INTERNAL_SERVER_ERROR";
     this.isoperational = true;
+    this.details = details;
 
     Error.captureStackTrace(this, this.constructor)
   }
