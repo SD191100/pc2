@@ -23,11 +23,6 @@ export const config = Object.freeze({
     datastoreId: getEnv('PROXMOX_DATASTORE_ID')
   },
 
-  pulumi: {
-    sshUsername: getEnv('PROXMOX_SSH_USERNAME'),
-    sshPrivateKey: getEnv('PROXMOX_SSH_PRIVATE_KEY')
-  },
-
   log: process.env.LOG_LEVEL,
   env: process.env.NODE_ENV,
   dbUri: process.env.DATABASE_URL || "",
