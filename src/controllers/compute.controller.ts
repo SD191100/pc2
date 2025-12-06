@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import type { CreateVMRequest } from "../types/compute.type.js";
-import { CreateVmService, DestroyVmService, GetVmState, ListVms, RestartVmService, StartVmService, StopVmService } from "../services/compute.service.js";
+import type { CreateVMRequest, UpdateVmRequest } from "../types/compute.type.js";
+import { CreateVmService, DestroyVmService, GetVmState, ListVms, RestartVmService, StartVmService, StopVmService, UpdateVmService } from "../services/compute.service.js";
 import logger from "../utils/logger.utils.js";
 import { sendError, sendPaginated, sendSuccess } from "../common/response.util.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
@@ -202,7 +202,45 @@ export const GetVm = async (req: Request, res: Response) => {
   }
 };
 
-export const UpdateVm = CreateVm;
+export const UpdateVm = async (req: Request, res: Response) => {
+  const requestId = (req as any).requestId;
+  const { vmId } = req.params;
+  const { cpu, memory, storage } = req.body;
+
+  if (vmId === undefined) {
+    logger.warn("UpdateVm: Validation failed - vmId is required", {
+      requestId,
+    });
+    sendError(res, 400, "VM id is required.", undefined, ErrorCode.VALIDATION_ERROR);
+    return;
+  }
+
+  const updateDto: UpdateVmRequest = {
+    cpu,
+    memory,
+    storage
+  }
+  
+  try {
+    logger.info("UpdateVm: Updating VM", {
+      requestId,
+      vmId,
+    });
+
+    const taskId = randomUUID();
+
+    await UpdateVmService(vmId, updateDto, taskId);
+    sendSuccess(res, 202, `VM update for ${vmId} has been started.`, { taskId })
+  } catch (error: any) {
+    logger.error("UpdateVm: Failed to update VM", {
+      requestId,
+      vmId,
+      error: error.message,
+      stack: error.stack,
+    });
+    sendError(res, error.statusCode || 500, error.message, undefined, error.errorCode)
+  }
+}
 
 export const StartVm = async (req: Request, res: Response) => {
   const requestId = (req as any).requestId;

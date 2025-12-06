@@ -6,7 +6,11 @@ import {
 import { PulumiProxmoxProgram as PulumiProgram } from "../pulumi/pulumi.js";
 import logger from "../utils/logger.utils.js";
 import AppError from "../utils/app-error.utils.js";
-import type { VmInfo, CreateVMRequest } from "../types/compute.type.js";
+import type {
+  VmInfo,
+  CreateVMRequest,
+  UpdateVmRequest,
+} from "../types/compute.type.js";
 import {
   CreateVmRecord,
   DeleteVmRecord,
@@ -18,14 +22,23 @@ import { taskStatus, VmCreationStatus } from "../generated/prisma/browser.js";
 import { ErrorCode } from "../common/error-codes.enum.js";
 import { updateTask } from "../repositories/task.repository.js";
 import { invokeTask } from "./tasks.service.js";
-import { config } from "../config/index.js";
-import { Agent } from "undici";
 import { ProxmoxApi } from "../utils/proxmox-api.utils.js";
+import type { VM } from "../generated/prisma/client.js";
+import type { RemoteWorkspaceOptions } from "@pulumi/pulumi/automation/remoteWorkspace.js";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   const { id } = vm;
 
-  const vmInfo = await FindVmByVmId(String(id));
+  let vmInfo = null;
+  try {
+    vmInfo = await FindVmByVmId(String(id));
+  } catch (error: any) {
+    if (error.statusCode === 404 || error.code === ErrorCode.VM_NOT_FOUND) {
+      vmInfo = null; // this is OK, means not existing
+    } else {
+      throw error; // rethrow other errors
+    }
+  }
   if (vmInfo) {
     logger.error(`vm with ${id} already exist`);
     throw new AppError(
@@ -153,6 +166,86 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
   }
 };
 
+export const UpdateVmService = async (
+  vmId: string,
+  updateDto: UpdateVmRequest,
+  taskId: string
+) => {
+  const vm: VM = await FindVmByVmId(String(vmId));
+  if (!vm) {
+    logger.error(`vm with ${vmId} not found`);
+    throw new AppError(
+      `VM with id ${vmId} not found`,
+      404,
+      ErrorCode.VM_NOT_FOUND
+    );
+  }
+
+  await invokeTask(taskId);
+  logger.info("UpdateVm: VM updation Task created successfully", {
+    vmId: vmId,
+    vmName: vm.name,
+  });
+
+  updateVm(vm, updateDto, taskId);
+};
+
+const updateVm = async (vm: VM, updateDto: UpdateVmRequest, taskId: string) => {
+  const stack = await selectStack(String(vm.vmId));
+
+  logger.debug("UpdateVm: Setting stack configuration", {
+    vmId: vm.vmId,
+    stackName: stack.name,
+  });
+
+  const { cpu, memory, storage } = updateDto;
+
+  await updateTask(taskId, { status: taskStatus.inProgress });
+
+  try {
+    cpu && (await stack.setConfig("vm:cpu", { value: String(cpu) }));
+    memory && (await stack.setConfig("vm:memory", { value: String(memory) }));
+    storage &&
+      (await stack.setConfig("vm:storage", { value: String(storage) }));
+
+    await stack.up({
+      onOutput: (msg: string) =>
+        logger.debug("Pulumi output", { vmId: vm.id, output: msg }),
+    });
+
+    await updateTask(taskId, { status: taskStatus.completed });
+
+    const newVmConf = {
+      ...vm,
+      cpu: cpu ?? vm.cpu,
+      memory: memory ?? vm.memory,
+      storage: storage ?? vm.storage,
+      stackName: stack.name,
+      status: VmCreationStatus.completed,
+    };
+
+    await UpdateVmRecord(vm.id, newVmConf);
+
+    logger.info("UpdateVm: VM updation completed successfully", {
+      vmId: vm.id,
+      vmName: vm.name,
+    });
+  } catch (err: any) {
+    logger.error("UpdateVm: Failed to update VM", {
+      vmId: vm.id,
+      vmName: vm.name,
+      error: err.message,
+      stack: err.stack,
+    });
+    await updateTask(taskId, { status: taskStatus.failed });
+    throw new AppError(
+      `Failed to update VM`,
+      500,
+      ErrorCode.VM_UPDATION_FAILED
+    );
+  }
+};
+
 export const DestroyVmService = async (vmId: string, taskId: string) => {
   const vm = await FindVmByVmId(vmId); // repository call
   if (!vm) throw new AppError("VM not found", 404);
@@ -233,7 +326,6 @@ export const ListVms = async () => {
   logger.debug("ListVms: Starting VM list retrieval");
 
   try {
-
     const output = await FindAllVms();
 
     logger.debug("ListVms: Filtering VMs by database records", {
@@ -327,7 +419,7 @@ const selectStack = async (vmId: string) => {
 
   const args: InlineProgramArgs = {
     stackName,
-    projectName: "provisioner-ts",
+    projectName: "pc2",
     program: PulumiProgram,
   };
 
@@ -375,13 +467,23 @@ export const createOrSelectStack = async (vmId: string) => {
 
   const args: InlineProgramArgs = {
     stackName,
-    projectName: "provisioner-ts",
+    projectName: "pc2",
     program: PulumiProgram,
   };
 
   const opts: LocalWorkspaceOptions = {
     workDir: "/home/sd/.pulumi",
+    envVars: {
+      PULUMI_BACKEND_URL: "s3://my-openio-bucket?endpoint=https://s3.gra.io.cloud.ovh.net&s3ForcePathStyle=true",
+      // You still need to provide AWS credentials as environment variables:
+      AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
+      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+    },
   };
+
+  // const remoteOpts: RemoteWorkspaceOptions = {
+  //   workDir: "/home/sd/.pulumi",
+  // };
 
   try {
     logger.debug("createOrSelectStack: Connecting to Pulumi workspace", {
@@ -416,9 +518,13 @@ export const createOrSelectStack = async (vmId: string) => {
 export const StartVmService = async (vmId: string) => {
   const vm = await FindVmByVmId(vmId);
   if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
-  
+
   if (vm.runtimeStatus === "running") {
-    throw new AppError("VM is already running", 409, ErrorCode.VM_ALREADY_STARTED);
+    throw new AppError(
+      "VM is already running",
+      409,
+      ErrorCode.VM_ALREADY_STARTED
+    );
   }
 
   try {
@@ -429,11 +535,11 @@ export const StartVmService = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    
+
     // Map specific Proxmox errors to user-friendly codes
     let userErrorCode = ErrorCode.VM_START_FAILED;
     let userMessage = "Failed to start VM";
-    
+
     if (error.details?.apiError?.includes("permission denied")) {
       userErrorCode = ErrorCode.PERMISSION_DENIED;
       userMessage = "Insufficient permissions to start VM";
@@ -444,10 +550,10 @@ export const StartVmService = async (vmId: string) => {
       userErrorCode = ErrorCode.VM_NOT_FOUND;
       userMessage = "VM not found";
     }
-    
+
     throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
   }
-}
+};
 
 const StartVm = async (vmId: string) => {
   const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/start`);
@@ -458,11 +564,11 @@ const StartVm = async (vmId: string) => {
       status: res.status,
       statusText: res.statusText,
       apiError: errorBody,
-      endpoint: `/qemu/${vmId}/status/start`
+      endpoint: `/qemu/${vmId}/status/start`,
     };
-    
+
     logger.error("StartVmService: Proxmox API error", errorDetails);
-    
+
     throw new AppError(
       `Proxmox API Error: ${res.status} ${res.statusText}`,
       res.status,
@@ -477,14 +583,18 @@ const StartVm = async (vmId: string) => {
     vmId,
     startRes,
   });
-}
+};
 
 export const StopVmService = async (vmId: string) => {
   const vm = await FindVmByVmId(vmId);
   if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
-  
+
   if (vm.runtimeStatus === "stopped") {
-    throw new AppError("VM is already stopped", 409, ErrorCode.VM_ALREADY_STOPPED);
+    throw new AppError(
+      "VM is already stopped",
+      409,
+      ErrorCode.VM_ALREADY_STOPPED
+    );
   }
 
   try {
@@ -495,11 +605,11 @@ export const StopVmService = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    
+
     // Map specific Proxmox errors to user-friendly codes
     let userErrorCode = ErrorCode.VM_STOP_FAILED;
     let userMessage = "Failed to stop VM";
-    
+
     if (error.details?.apiError?.includes("permission denied")) {
       userErrorCode = ErrorCode.PERMISSION_DENIED;
       userMessage = "Insufficient permissions to stop VM";
@@ -510,10 +620,10 @@ export const StopVmService = async (vmId: string) => {
       userErrorCode = ErrorCode.VM_NOT_FOUND;
       userMessage = "VM not found";
     }
-    
+
     throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
   }
-}
+};
 
 const StopVm = async (vmId: string) => {
   const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/stop`);
@@ -524,11 +634,11 @@ const StopVm = async (vmId: string) => {
       status: res.status,
       statusText: res.statusText,
       apiError: errorBody,
-      endpoint: `/qemu/${vmId}/status/stop`
+      endpoint: `/qemu/${vmId}/status/stop`,
     };
-    
+
     logger.error("StopVmService: Proxmox API error", errorDetails);
-    
+
     throw new AppError(
       `Proxmox API Error: ${res.status} ${res.statusText}`,
       res.status,
@@ -543,14 +653,18 @@ const StopVm = async (vmId: string) => {
     vmId,
     stopRes,
   });
-}
+};
 
 export const RestartVmService = async (vmId: string) => {
   const vm = await FindVmByVmId(vmId);
   if (!vm) throw new AppError("VM not found", 404, ErrorCode.VM_NOT_FOUND);
-  
+
   if (vm.runtimeStatus === "stopped") {
-    throw new AppError("VM is already stopped", 409, ErrorCode.VM_ALREADY_STOPPED);
+    throw new AppError(
+      "VM is already stopped",
+      409,
+      ErrorCode.VM_ALREADY_STOPPED
+    );
   }
 
   try {
@@ -561,11 +675,11 @@ export const RestartVmService = async (vmId: string) => {
       error: error.message,
       stack: error.stack,
     });
-    
+
     // Map specific Proxmox errors to user-friendly codes
     let userErrorCode = ErrorCode.VM_RESTART_FAILED;
     let userMessage = "Failed to restart VM";
-    
+
     if (error.details?.apiError?.includes("permission denied")) {
       userErrorCode = ErrorCode.PERMISSION_DENIED;
       userMessage = "Insufficient permissions to restart VM";
@@ -579,10 +693,10 @@ export const RestartVmService = async (vmId: string) => {
       userErrorCode = ErrorCode.VM_ALREADY_STOPPED;
       userMessage = "VM must be running to restart";
     }
-    
+
     throw new AppError(userMessage, error.statusCode || 500, userErrorCode);
   }
-}
+};
 
 const RestartVm = async (vmId: string) => {
   const res = await ProxmoxApi("POST", `/qemu/${vmId}/status/reboot`);
@@ -593,11 +707,11 @@ const RestartVm = async (vmId: string) => {
       status: res.status,
       statusText: res.statusText,
       apiError: errorBody,
-      endpoint: `/qemu/${vmId}/status/reboot`
+      endpoint: `/qemu/${vmId}/status/reboot`,
     };
-    
+
     logger.error("RestartVmService: Proxmox API error", errorDetails);
-    
+
     throw new AppError(
       `Proxmox API Error: ${res.status} ${res.statusText}`,
       res.status,
@@ -612,5 +726,4 @@ const RestartVm = async (vmId: string) => {
     vmId,
     restartRes,
   });
-}
-
+};

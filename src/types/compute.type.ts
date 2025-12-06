@@ -20,3 +20,9 @@ export interface VmInfo {
   status: string;
   uptime: string;
 }
+
+export type UpdateVmRequest = {
+  cpu?: number;
+  memory?: number;
+  storage?: number;
+}

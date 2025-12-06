@@ -27,7 +27,7 @@ export const PulumiProxmoxProgram = async () => {
   const username = vmConfig.require("username");
   const sshKey = vmConfig.require("sshKey") || "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILC1sojEzJi3s0pzFfOJ9gBuOlBeFRfSrrlonZmeGnwS shivam.d@alligatorinfosoft.com"
   const password = vmConfig.require("password");
-  const bootOrder = ["ide2"];
+  const bootOrder = ["ide2", "scsi0"];
 
   const templateVmIdStr = vmConfig.require("templateId") || config.proxmox.templateId; const templateVmId = parseInt(templateVmIdStr, 10);
   const datastoreId = config.proxmox.datastoreId;
