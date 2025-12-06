@@ -23,6 +23,13 @@ export const config = Object.freeze({
     datastoreId: getEnv('PROXMOX_DATASTORE_ID')
   },
 
+  pulumi: {
+    backendUrl: getEnv('PULUMI_BACKEND_URL'),
+    accessKeyId: getEnv('AWS_ACCESS_KEY_ID'),
+    secretAccessKey: getEnv('AWS_SECRET_ACCESS_KEY'),
+    region: getEnv('AWS_REGION')
+  },
+
   log: process.env.LOG_LEVEL,
   env: process.env.NODE_ENV,
   dbUri: process.env.DATABASE_URL || "",

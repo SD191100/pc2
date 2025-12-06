@@ -24,7 +24,7 @@ import { updateTask } from "../repositories/task.repository.js";
 import { invokeTask } from "./tasks.service.js";
 import { ProxmoxApi } from "../utils/proxmox-api.utils.js";
 import type { VM } from "../generated/prisma/client.js";
-import type { RemoteWorkspaceOptions } from "@pulumi/pulumi/automation/remoteWorkspace.js";
+import { config } from "../config/index.js";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   const { id } = vm;
@@ -97,7 +97,7 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       name: vm.name,
       cpu: vm.cpu,
       memory: vm.memory,
-      storage: vm.storage,
+      storage: Number(vm.storage),
       templateId: vm.templateId,
       ioAddress: vm.ioAddress,
       gateway: vm.gateway,
@@ -424,7 +424,13 @@ const selectStack = async (vmId: string) => {
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: "/home/sd/.pulumi",
+    workDir: "/home/administrator/.pulumi",
+    envVars: {
+      PULUMI_BACKEND_URL: config.pulumi.backendUrl || "",
+      AWS_ACCESS_KEY_ID: config.pulumi.accessKeyId || "",
+      AWS_SECRET_ACCESS_KEY: config.pulumi.secretAccessKey || "",
+      AWS_REGION: config.pulumi.region || "",
+    },
   };
 
   try {
@@ -472,12 +478,12 @@ export const createOrSelectStack = async (vmId: string) => {
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: "/home/sd/.pulumi",
+    workDir: "/home/administrator/.pulumi",
     envVars: {
-      PULUMI_BACKEND_URL: "s3://my-openio-bucket?endpoint=https://s3.gra.io.cloud.ovh.net&s3ForcePathStyle=true",
-      // You still need to provide AWS credentials as environment variables:
-      AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
-      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+      PULUMI_BACKEND_URL: config.pulumi.backendUrl || "",
+      AWS_ACCESS_KEY_ID: config.pulumi.accessKeyId || "",
+      AWS_SECRET_ACCESS_KEY: config.pulumi.secretAccessKey || "",
+      AWS_REGION: config.pulumi.region || "",
     },
   };
 
