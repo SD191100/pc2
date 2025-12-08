@@ -6,7 +6,9 @@
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "start:dev": "tsc && npx nodemon dist/server",
-    "build": "npm i && npx typesync && npm i && tsc"
+    "build": "npm i && npx typesync && npm i && tsc",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
   },
   "keywords": [
     "compute",
