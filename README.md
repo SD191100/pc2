@@ -2,6 +2,7 @@
 
 Plastic Compute Cloud (pc2) is a small service that manages virtual machines on a hypervisor.
 Right now it targets **Proxmox VE**, but the design is meant to be adaptable to other hypervisors later.
+This is part of a bigger cloud platform created as a microservices, i am eager to learn it, and this solves few problems of my own...
 
 This repo contains:
 
