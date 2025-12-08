@@ -25,6 +25,7 @@ import { invokeTask } from "./tasks.service.js";
 import { ProxmoxApi } from "../utils/proxmox-api.utils.js";
 import type { VM } from "../generated/prisma/client.js";
 import { config } from "../config/index.js";
+import { Agent } from "undici";
 
 export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   const { id } = vm;
@@ -55,12 +56,12 @@ export const CreateVmService = async (vm: CreateVMRequest, taskId: string) => {
   });
 
   // Fire-and-forget: start the async task without awaiting
-  createOrUpdateVm(vm, taskId);
+  createVm(vm, taskId);
   return;
 };
 
-const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
-  logger.debug("CreateOrUpdateVm: Starting VM creation/update", {
+const createVm = async (vm: CreateVMRequest, taskId: string) => {
+  logger.debug("CreateVm: Starting VM creation/update", {
     vmId: vm.id,
     vmName: vm.name,
   });
@@ -68,13 +69,13 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
   const id = crypto.randomUUID();
 
   try {
-    logger.debug("CreateOrUpdateVm: Creating or selecting stack", {
+    logger.debug("CreateVm: Creating or selecting stack", {
       vmId: vm.id,
     });
 
     const stack = await createOrSelectStack(String(vm.id));
 
-    logger.debug("CreateOrUpdateVm: Setting stack configuration", {
+    logger.debug("CreateVm: Setting stack configuration", {
       vmId: vm.id,
       stackName: stack.name,
     });
@@ -107,14 +108,14 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
       status: VmCreationStatus.creating,
     };
 
-    logger.debug("CreateOrUpdateVm: Creating VM record in database", {
+    logger.debug("CreateVm: Creating VM record in database", {
       vmId: vm.id,
       recordId: id,
     });
 
     await CreateVmRecord(conf);
     logger.debug(
-      "CreateOrUpdateVm: updating record for task in database from pending to inProgress",
+      "CreateVm: updating record for task in database from pending to inProgress",
       {
         vmId: vm.id,
         recordId: id,
@@ -123,7 +124,7 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
 
     await updateTask(taskId, { status: taskStatus.inProgress });
 
-    logger.info("CreateOrUpdateVm: Running Pulumi stack up", {
+    logger.info("CreateVm: Running Pulumi stack up", {
       vmId: vm.id,
       stackName: stack.name,
     });
@@ -133,24 +134,24 @@ const createOrUpdateVm = async (vm: CreateVMRequest, taskId: string) => {
         logger.debug("Pulumi output", { vmId: vm.id, output: msg }),
     });
 
-    logger.debug("CreateOrUpdateVm: Updating VM status to completed", {
+    logger.debug("CreateVm: Updating VM status to completed", {
       vmId: vm.id,
       recordId: id,
     });
 
     await UpdateVmRecord(id, { status: VmCreationStatus.completed });
-    logger.debug("CreateOrUpdateVm: Updating Task status to completed", {
+    logger.debug("CreateVm: Updating Task status to completed", {
       vmId: vm.id,
       taskId,
     });
     await updateTask(taskId, { status: taskStatus.completed });
 
-    logger.info("CreateOrUpdateVm: VM creation/update completed successfully", {
+    logger.info("CreateVm: VM creation/update completed successfully", {
       vmId: vm.id,
       recordId: id,
     });
   } catch (err: any) {
-    logger.error("CreateOrUpdateVm: Failed to create/update VM", {
+    logger.error("CreateVm: Failed to create/update VM", {
       vmId: vm.id,
       vmName: vm.name,
       error: err.message,
@@ -190,6 +191,89 @@ export const UpdateVmService = async (
   updateVm(vm, updateDto, taskId);
 };
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const resize = async (vm: VM, storage: number) => {
+  const nodeName = config.proxmox.node || "proxmox";
+  const tokenId = config.proxmox.apiTokenId;
+  const tokenSecret = config.proxmox.apiTokenSecret;
+  const endpoint = config.proxmox.endpoint;
+  const sslVerify = String(config.proxmox.sslVerify)?.toLowerCase() !== 'false';
+
+  if (!sslVerify) {
+    logger.warn("updateVm: SSL/TLS verification is disabled - insecure configuration");
+  }
+
+  const dispatcher = new Agent({
+    connect: {
+      rejectUnauthorized: sslVerify,
+    },
+  });
+
+  const body = {
+    disk: "scsi0",
+    node: nodeName,
+    size: `+${storage}G`,
+    vmid: parseInt(vm.vmId)
+  }
+
+  const headers = {
+    method: "PUT",
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `PVEAPIToken=${tokenId}=${tokenSecret}`,
+    },
+
+    body: JSON.stringify(body),
+    dispatcher
+  }
+
+  try {
+    // const res = await ProxmoxApi(`PUT`, `/qemu/${vm.vmId}/resize`, body)
+    let res = await fetch(`${endpoint}/api2/json/nodes/${nodeName}/qemu/${vm.vmId}/resize`, headers)
+    const data = await res.json()
+    console.log(data.data)
+    const start = Date.now()
+
+    while (true) {
+      if (Date.now() - start > 60000) {
+        throw new AppError("Timed out waiting for proxmox task to finish", 500);
+      }
+      const pollHeaders = {
+        method: "GET",
+        headers: {
+          'Authorization': `PVEAPIToken=${tokenId}=${tokenSecret}`,
+        },
+        dispatcher
+      }
+      res = await fetch(`${endpoint}/api2/json/nodes/${nodeName}/tasks/${data.data}/status`, pollHeaders)
+      const statusData = await res.json();
+      const status = statusData?.data?.status;
+      const exit = statusData?.data?.exitstatus;
+
+      if (status === "stopped") {
+        if (exit === "OK") break;
+        throw new Error(`Proxmox task failed: ${exit}`);
+      }
+      await sleep(5000);
+    }
+    logger.info("UpdateVm: storage updated successfull", {
+      vmId: vm.vmId,
+      data
+    })
+  } catch (error: any) {
+    logger.error("UpdateVm: Failed to update storage", {
+      vmId: vm.id,
+      vmName: vm.name,
+      error: error.message,
+      stack: error.stack,
+    })
+    throw new AppError(`error while updating storage`, 500)
+  }
+}
+
 const updateVm = async (vm: VM, updateDto: UpdateVmRequest, taskId: string) => {
   const stack = await selectStack(String(vm.vmId));
 
@@ -205,9 +289,9 @@ const updateVm = async (vm: VM, updateDto: UpdateVmRequest, taskId: string) => {
   try {
     cpu && (await stack.setConfig("vm:cpu", { value: String(cpu) }));
     memory && (await stack.setConfig("vm:memory", { value: String(memory) }));
-    storage &&
-      (await stack.setConfig("vm:storage", { value: String(storage) }));
-
+    if (storage && storage > 0) {
+      await resize(vm, storage);
+    }
     await stack.up({
       onOutput: (msg: string) =>
         logger.debug("Pulumi output", { vmId: vm.id, output: msg }),
