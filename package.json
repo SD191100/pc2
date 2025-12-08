@@ -1,10 +1,10 @@
 {
-  "name": "compute",
-  "version": "0.0.2",
-  "description": "Compute service for managing VMs on Proxmox",
+  "name": "pc2",
+  "version": "0.0.3",
+  "description": "Plastic Compute cloud: for manage VMs on any hypervisor(proxmox for now)",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "start:dev": "tsc && npx nodemon dist/server",
     "build": "npm i && npx typesync && npm i && tsc"
   },
@@ -37,6 +37,12 @@
   "devDependencies": {
     "@types/cors": "~2.8.19",
     "@types/express": "~5.0.5",
-    "@types/pg": "~8.15.6"
+    "@types/jest": "^30.0.0",
+    "@types/pg": "~8.15.6",
+    "@types/supertest": "~6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2"
   }
 }
