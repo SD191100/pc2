@@ -303,7 +303,7 @@ const updateVm = async (vm: VM, updateDto: UpdateVmRequest, taskId: string) => {
       ...vm,
       cpu: cpu ?? vm.cpu,
       memory: memory ?? vm.memory,
-      storage: storage ?? vm.storage,
+      storage: storage ? vm.storage + storage : vm.storage,
       stackName: stack.name,
       status: VmCreationStatus.completed,
     };
