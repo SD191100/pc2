@@ -424,12 +424,13 @@ const selectStack = async (vmId: string) => {
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: "/home/administrator/.pulumi",
+    workDir: config.pulumi.workDir,
     envVars: {
       PULUMI_BACKEND_URL: config.pulumi.backendUrl || "",
       AWS_ACCESS_KEY_ID: config.pulumi.accessKeyId || "",
       AWS_SECRET_ACCESS_KEY: config.pulumi.secretAccessKey || "",
       AWS_REGION: config.pulumi.region || "",
+      PULUMI_CONFIG_PASSPHRASE: config.pulumi.configPassphrase || "",
     },
   };
 
@@ -478,18 +479,15 @@ export const createOrSelectStack = async (vmId: string) => {
   };
 
   const opts: LocalWorkspaceOptions = {
-    workDir: "/home/administrator/.pulumi",
+    workDir: config.pulumi.workDir,
     envVars: {
       PULUMI_BACKEND_URL: config.pulumi.backendUrl || "",
       AWS_ACCESS_KEY_ID: config.pulumi.accessKeyId || "",
       AWS_SECRET_ACCESS_KEY: config.pulumi.secretAccessKey || "",
       AWS_REGION: config.pulumi.region || "",
+      PULUMI_CONFIG_PASSPHRASE: config.pulumi.configPassphrase || "",
     },
   };
-
-  // const remoteOpts: RemoteWorkspaceOptions = {
-  //   workDir: "/home/sd/.pulumi",
-  // };
 
   try {
     logger.debug("createOrSelectStack: Connecting to Pulumi workspace", {

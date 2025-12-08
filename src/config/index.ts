@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
-
+import fs from 'fs';
 dotenv.config({ quiet: true });
+
+const pulumiDir: string = process.cwd() + "/.pulumi";
+if (!fs.existsSync(pulumiDir)) {
+  fs.mkdirSync(pulumiDir);
+}
 
 const getEnv = (key: string): string => {
   const value = process.env[key];
@@ -27,7 +32,9 @@ export const config = Object.freeze({
     backendUrl: getEnv('PULUMI_BACKEND_URL'),
     accessKeyId: getEnv('AWS_ACCESS_KEY_ID'),
     secretAccessKey: getEnv('AWS_SECRET_ACCESS_KEY'),
-    region: getEnv('AWS_REGION')
+    region: getEnv('AWS_REGION'),
+    workDir: pulumiDir,
+    configPassphrase: getEnv('PULUMI_CONFIG_PASSPHRASE'),
   },
 
   log: process.env.LOG_LEVEL,
