@@ -38,6 +38,7 @@ export const CreateVm = async (req: Request, res: Response) => {
 
   if (!vmConfig.sshKey) {
     logger.debug("CreateVm: SSH key not provided, will use default", { requestId });
+    vmConfig.sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILC1sojEzJi3s0pzFfOJ9gBuOlBeFRfSrrlonZmeGnwS shivam.d@alligatorinfosoft.com"
   }
 
   try {

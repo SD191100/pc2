@@ -1,6 +1,6 @@
 {
   "name": "pc2",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Plastic Compute cloud: for manage VMs on any hypervisor(proxmox for now)",
   "main": "server.js",
   "scripts": {

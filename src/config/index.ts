@@ -1,8 +1,9 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import os from 'os'
 dotenv.config({ quiet: true });
 
-const pulumiDir: string = process.cwd() + "/.pulumi";
+const pulumiDir: string = os.tmpdir() + "/.pulumi";
 if (!fs.existsSync(pulumiDir)) {
   fs.mkdirSync(pulumiDir);
 }

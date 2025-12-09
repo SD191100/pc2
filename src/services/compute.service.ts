@@ -104,6 +104,7 @@ const createVm = async (vm: CreateVMRequest, taskId: string) => {
       gateway: vm.gateway,
       username: vm.username,
       password: vm.password,
+      sshKey: vm.sshKey,
       stackName: stack.name,
       status: VmCreationStatus.creating,
     };
@@ -287,8 +288,17 @@ const updateVm = async (vm: VM, updateDto: UpdateVmRequest, taskId: string) => {
   await updateTask(taskId, { status: taskStatus.inProgress });
 
   try {
-    cpu && (await stack.setConfig("vm:cpu", { value: String(cpu) }));
-    memory && (await stack.setConfig("vm:memory", { value: String(memory) }));
+   await stack.setConfig("vm:id", { value: String(vm.vmId) });
+    await stack.setConfig("vm:name", { value: vm.name });
+    await stack.setConfig("vm:cpu", { value: String(cpu ?? vm.cpu) });
+    await stack.setConfig("vm:memory", { value: String(memory ?? vm.memory) });
+    await stack.setConfig("vm:storage", { value: String(vm.storage) });
+    await stack.setConfig("vm:ioAddress", { value: vm.ioAddress || "" });
+    await stack.setConfig("vm:gateway", { value: vm.gateway || "" });
+    await stack.setConfig("vm:username", { value: vm.username || "" });
+    await stack.setConfig("vm:sshKey", { value: vm.sshKey || "" });
+    await stack.setConfig("vm:password", { value: vm.password || "" });
+    await stack.setConfig("vm:templateId", { value: vm.templateId || "" });
     if (storage && storage > 0) {
       await resize(vm, storage);
     }
