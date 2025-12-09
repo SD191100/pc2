@@ -49,6 +49,7 @@ model VM {
   templateId String?
   stackName String @unique
   owner String?
+  sshKey String?
   status VmCreationStatus @default(pending)
   runtimeStatus VmRuntimeStatus @default(stopped)
   createdAt DateTime @default(now())
