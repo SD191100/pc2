@@ -16,6 +16,7 @@ export interface VM {
   status: VmCreationStatus;
   runtimeStatus: VmRuntimeStatus;
   owner?: string | null;
+  uptime?: bigint | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -45,13 +45,14 @@ export const FetchAllState = async () => {
   }
 
   const vmStatuses: any = await res.json();
+  console.log(vmStatuses)
 
   const vmRepo: VM[] | any = await FindAllVms();
 
   for (let i = 0; i < vmRepo.length; i++) {
     for (let j = 0; j < vmStatuses.data.length; j++) {
       if (vmRepo[i].vmId === String(vmStatuses.data[j].vmid)) {
-        await UpdateVmRecord(vmRepo[i].id, { runtimeStatus: vmStatuses.data[j].status });
+        await UpdateVmRecord(vmRepo[i].id, { runtimeStatus: vmStatuses.data[j].status, uptime: vmStatuses.data[j].uptime});
       }
     }
   }
