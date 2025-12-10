@@ -235,7 +235,6 @@ const resize = async (vm: VM, storage: number) => {
     // const res = await ProxmoxApi(`PUT`, `/qemu/${vm.vmId}/resize`, body)
     let res = await fetch(`${endpoint}/api2/json/nodes/${nodeName}/qemu/${vm.vmId}/resize`, headers)
     const data = await res.json()
-    console.log(data.data)
     const start = Date.now()
 
     while (true) {
