@@ -18,7 +18,9 @@ export interface VmInfo {
   memory: number;
   name: string;
   status: string;
-  uptime: string;
+  uptime: number | null;
+  storage: number;
+  ipAddress: string;
 }
 
 export type UpdateVmRequest = {
