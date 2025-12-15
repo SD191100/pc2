@@ -437,7 +437,9 @@ export const ListVms = async () => {
         memory: Number(item.memory),
         name: item.name || "",
         status: item.runtimeStatus || "",
-        uptime: "",
+        uptime: item.uptime != null ? Number(item.uptime) : null,
+        storage: item.storage != null ? Number(item.storage) : 0,
+        ipAddress: item.ioAddress || "",
       };
 
       filteredOutput.push(outputVm);
@@ -473,12 +475,16 @@ export const GetVmState = async (vmId: string) => {
       throw new AppError("failed to retrieve VM", 404, ErrorCode.VM_NOT_FOUND);
     }
 
+
     const output = {
       vmId: vm.vmId,
+      name: vm.name,
+      storage: vm.storage,
       cpus: vm.cpu,
       memory: vm.memory,
-      name: vm.name,
+      ipAddress: vm.ioAddress,
       status: vm.runtimeStatus,
+      uptime: Number(vm.uptime),  
     };
 
     logger.debug("GetVmState: VM state retrieved successfully", {
@@ -487,7 +493,7 @@ export const GetVmState = async (vmId: string) => {
       vmStatus: output.status,
     });
 
-    return { output };
+    return output;
   } catch (error: any) {
     logger.error("GetVmState: Failed to fetch VM state", {
       vmId,

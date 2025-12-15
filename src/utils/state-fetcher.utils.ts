@@ -45,7 +45,6 @@ export const FetchAllState = async () => {
   }
 
   const vmStatuses: any = await res.json();
-  console.log(vmStatuses)
 
   const vmRepo: VM[] | any = await FindAllVms();
 
