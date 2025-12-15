@@ -4,6 +4,8 @@ import { config } from './src/config/index.js';
 import logger from './src/utils/logger.utils.js';
 import { FetchAllState } from './src/utils/state-fetcher.utils.js';
 
+console.log('Database URL from config:', config.dbUri);
+
 const PORT = config.port || 3000
 const advisoryLockId = config.advisoryLockId;
 
