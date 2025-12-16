@@ -96,7 +96,7 @@ export const PulumiProxmoxProgram = async () => {
     },
   }, {
     provider: proxmoxProvider,
-    ignoreChanges: ["initialization", "bootOrders", "disks"],
+    ignoreChanges: ["initialization", "disks"],
   });
   return {
     vmId: virtualMachine.id,
