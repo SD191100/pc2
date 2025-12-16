@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci && npm cache clean --force
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -16,22 +16,11 @@ COPY . .
 # Generate Prisma client
 RUN npm run prisma:generate
 
-# Compile TypeScript
-RUN npm run build
-
 # Production stage
 FROM node:20-alpine AS production
 
 # Create app directory
 WORKDIR /app
-
-RUN apk add --no-cache curl bash ca-certificates && \
-        curl -sfSL https://get.pulumi.com | sh && \
-        mv /root/.pulumi/bin/pulumi /usr/local/bin/pulumi && \
-        apk del curl bash
-
-RUN pulumi plugin install resource proxmoxve v7.7.0 \
-        --server github://api.github.com/muhlba91/pulumi-proxmoxve
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
