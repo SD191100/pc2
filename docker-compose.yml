@@ -84,16 +84,28 @@ services:
       - -c
       - |
         echo "=== Garage Initialization ==="
-        sleep 10
         
         AUTH="Authorization: Bearer pc2-garage-admin-token"
+        
+        # Wait for Garage to be ready
+        echo "Waiting for Garage API..."
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          RESPONSE=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status 2>&1)
+          if [ -n "$$RESPONSE" ]; then
+            echo "Garage API is ready"
+            break
+          fi
+          echo "Attempt $$i: Garage not ready, waiting..."
+          sleep 3
+        done
         
         # Get node ID (from "node" field in status response)
         NODE_ID=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status | grep -o '"node":"[^"]*"' | cut -d'"' -f4)
         echo "Node ID: $$NODE_ID"
         
         if [ -z "$$NODE_ID" ]; then
-          echo "ERROR: Could not get node ID"
+          echo "ERROR: Could not get node ID. Response was:"
+          curl -v -H "$$AUTH" http://garage:3903/v1/status 2>&1
           exit 1
         fi
         
