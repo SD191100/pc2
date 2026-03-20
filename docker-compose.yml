@@ -100,12 +100,13 @@ services:
         done
         
         # Get node ID (from "node" field in status response)
-        NODE_ID=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status | grep -o '"node":"[^"]*"' | cut -d'"' -f4)
+        STATUS=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status)
+        NODE_ID=$$(echo "$$STATUS" | sed -n 's/.*"node":"\([^"]*\)".*/\1/p')
         echo "Node ID: $$NODE_ID"
         
         if [ -z "$$NODE_ID" ]; then
           echo "ERROR: Could not get node ID. Response was:"
-          curl -v -H "$$AUTH" http://garage:3903/v1/status 2>&1
+          echo "$$STATUS"
           exit 1
         fi
         
