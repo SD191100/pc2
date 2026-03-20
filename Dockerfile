@@ -7,17 +7,24 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL dependencies (including devDependencies for build)
+RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client
-RUN npm run prisma:generate
+# Generate Prisma client and build TypeScript
+RUN npm run prisma:generate && npm run build
 
 # Production stage
 FROM node:20-alpine AS production
+
+# Install curl for healthchecks and Pulumi CLI
+RUN apk add --no-cache curl bash
+
+# Install Pulumi CLI
+RUN curl -fsSL https://get.pulumi.com | sh
+ENV PATH="/root/.pulumi/bin:${PATH}"
 
 # Create app directory
 WORKDIR /app
@@ -26,11 +33,23 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
+# Copy Pulumi to nodejs user
+RUN mkdir -p /home/nodejs/.pulumi && \
+    cp -r /root/.pulumi/bin /home/nodejs/.pulumi/ && \
+    chown -R nodejs:nodejs /home/nodejs/.pulumi
+
 # Copy built application from builder stage
-COPY --from=builder --chown=nodejs:nodejs /app /app
+COPY --from=builder --chown=nodejs:nodejs /app/dist /app/dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules /app/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package.json /app/package.json
+COPY --from=builder --chown=nodejs:nodejs /app/prisma /app/prisma
+COPY --from=builder --chown=nodejs:nodejs /app/src/generated /app/src/generated
 
 # Switch to non-root user
 USER nodejs
+
+# Set Pulumi path for nodejs user
+ENV PATH="/home/nodejs/.pulumi/bin:${PATH}"
 
 # Expose port
 EXPOSE 8000

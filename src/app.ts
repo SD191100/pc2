@@ -8,7 +8,12 @@ import { loggingMiddleware } from "./middlewares/logging.middleware.js";
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(loggingMiddleware);
 
 app.use('/', rootRouter);
