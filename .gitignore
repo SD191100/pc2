@@ -12,3 +12,6 @@ logs/
 /src/generated
 
 todo.md
+
+# Docker compose generated credentials
+garage-credentials/
