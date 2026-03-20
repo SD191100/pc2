@@ -84,22 +84,29 @@ services:
       - -c
       - |
         echo "=== Garage Initialization ==="
-        sleep 5
+        sleep 10
+        
+        AUTH="Authorization: Bearer pc2-garage-admin-token"
         
         # Get node ID
-        NODE_ID=$$(curl -sf http://garage:3903/v1/status | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        NODE_ID=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
         echo "Node ID: $$NODE_ID"
         
+        if [ -z "$$NODE_ID" ]; then
+          echo "ERROR: Could not get node ID"
+          exit 1
+        fi
+        
         # Configure layout
-        curl -sf -X POST http://garage:3903/v1/layout \
-          -H "Content-Type: application/json" \
+        curl -sf -X POST -H "$$AUTH" -H "Content-Type: application/json" \
+          http://garage:3903/v1/layout \
           -d "{\"$$NODE_ID\": {\"zone\": \"dc1\", \"capacity\": 1073741824, \"tags\": [\"pc2\"]}}" || true
         
         # Apply layout
-        VERSION=$$(curl -sf http://garage:3903/v1/layout | grep -o '"version":[0-9]*' | cut -d':' -f2)
+        VERSION=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/layout | grep -o '"version":[0-9]*' | cut -d':' -f2)
         NEW_VERSION=$$((VERSION + 1))
-        curl -sf -X POST http://garage:3903/v1/layout/apply \
-          -H "Content-Type: application/json" \
+        curl -sf -X POST -H "$$AUTH" -H "Content-Type: application/json" \
+          http://garage:3903/v1/layout/apply \
           -d "{\"version\": $$NEW_VERSION}" || true
         
         echo "Layout configured!"
@@ -110,8 +117,8 @@ services:
           grep "AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY" /host-env
         else
           echo "Creating access key..."
-          KEY_RESPONSE=$$(curl -sf -X POST http://garage:3903/v1/key \
-            -H "Content-Type: application/json" \
+          KEY_RESPONSE=$$(curl -sf -X POST -H "$$AUTH" -H "Content-Type: application/json" \
+            http://garage:3903/v1/key \
             -d '{"name": "pc2-pulumi"}')
           
           ACCESS_KEY=$$(echo "$$KEY_RESPONSE" | grep -o '"accessKeyId":"[^"]*"' | cut -d'"' -f4)
@@ -119,16 +126,16 @@ services:
           
           if [ -n "$$ACCESS_KEY" ]; then
             echo "Creating bucket..."
-            BUCKET_RESPONSE=$$(curl -sf -X POST http://garage:3903/v1/bucket \
-              -H "Content-Type: application/json" \
+            BUCKET_RESPONSE=$$(curl -sf -X POST -H "$$AUTH" -H "Content-Type: application/json" \
+              http://garage:3903/v1/bucket \
               -d '{"globalAlias": "pulumi-state"}')
             
             BUCKET_ID=$$(echo "$$BUCKET_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
             
             if [ -n "$$BUCKET_ID" ]; then
               echo "Granting bucket access..."
-              curl -sf -X POST http://garage:3903/v1/bucket/allow \
-                -H "Content-Type: application/json" \
+              curl -sf -X POST -H "$$AUTH" -H "Content-Type: application/json" \
+                http://garage:3903/v1/bucket/allow \
                 -d "{\"bucketId\": \"$$BUCKET_ID\", \"accessKeyId\": \"$$ACCESS_KEY\", \"permissions\": {\"read\": true, \"write\": true, \"owner\": true}}"
             fi
             

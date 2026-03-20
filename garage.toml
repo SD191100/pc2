@@ -21,3 +21,4 @@ root_domain = ".web.garage.localhost"
 
 [admin]
 api_bind_addr = "[::]:3903"
+admin_token = "pc2-garage-admin-token"
