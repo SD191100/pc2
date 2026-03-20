@@ -88,8 +88,8 @@ services:
         
         AUTH="Authorization: Bearer pc2-garage-admin-token"
         
-        # Get node ID
-        NODE_ID=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        # Get node ID (from "node" field in status response)
+        NODE_ID=$$(curl -sf -H "$$AUTH" http://garage:3903/v1/status | grep -o '"node":"[^"]*"' | cut -d'"' -f4)
         echo "Node ID: $$NODE_ID"
         
         if [ -z "$$NODE_ID" ]; then
