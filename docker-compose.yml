@@ -23,12 +23,36 @@ services:
       - pc2-network
 
   # ===========================================
+  # Garage Secret Init - Creates RPC secret file
+  # ===========================================
+  garage-secret:
+    image: alpine:latest
+    container_name: pc2-garage-secret
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f /var/lib/garage/meta/.rpc_secret ]; then
+          head -c 32 /dev/urandom | xxd -p -c 64 > /var/lib/garage/meta/.rpc_secret
+          echo "RPC secret created"
+        else
+          echo "RPC secret already exists"
+        fi
+    networks:
+      - pc2-network
+
+  # ===========================================
   # Garage - S3 Compatible Storage (Pulumi State)
   # ===========================================
   garage:
     image: dxflrs/garage:v1.0.1
     container_name: pc2-garage
     restart: unless-stopped
+    depends_on:
+      garage-secret:
+        condition: service_completed_successfully
     ports:
       - "${GARAGE_API_PORT:-3900}:3900"
       - "${GARAGE_RPC_PORT:-3901}:3901"
@@ -39,15 +63,6 @@ services:
       - ./garage.toml:/etc/garage.toml:ro
     environment:
       GARAGE_CONFIG_FILE: /etc/garage.toml
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        # Generate RPC secret if it doesn't exist
-        if [ ! -f /var/lib/garage/meta/.rpc_secret ]; then
-          head -c 32 /dev/urandom | xxd -p -c 64 > /var/lib/garage/meta/.rpc_secret
-        fi
-        exec /garage server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3903/health"]
       interval: 30s
