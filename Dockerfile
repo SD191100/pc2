@@ -13,6 +13,20 @@ RUN npm ci && npm cache clean --force
 # Copy source code
 COPY . .
 
+# Set dummy env vars for build (prisma.config.ts needs them)
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy \
+    PULUMI_CONFIG_PASSPHRASE=dummy \
+    PULUMI_BACKEND_URL=s3://dummy \
+    AWS_ACCESS_KEY_ID=dummy \
+    AWS_SECRET_ACCESS_KEY=dummy \
+    AWS_REGION=dummy \
+    PROXMOX_ENDPOINT=https://dummy:8006 \
+    PROXMOX_API_TOKEN_ID=dummy \
+    PROXMOX_API_TOKEN_SECRET=dummy \
+    PROXMOX_NODE=dummy \
+    PROXMOX_TEMPLATE_VM_ID=9000 \
+    PROXMOX_DATASTORE_ID=dummy
+
 # Generate Prisma client and build TypeScript
 RUN npm run prisma:generate && npm run build
 
