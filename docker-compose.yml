@@ -36,9 +36,11 @@ services:
       - |
         if [ ! -f /var/lib/garage/meta/.rpc_secret ]; then
           head -c 32 /dev/urandom | xxd -p -c 64 > /var/lib/garage/meta/.rpc_secret
-          echo "RPC secret created"
+          chmod 600 /var/lib/garage/meta/.rpc_secret
+          echo "RPC secret created with mode 600"
         else
-          echo "RPC secret already exists"
+          chmod 600 /var/lib/garage/meta/.rpc_secret
+          echo "RPC secret already exists, fixed permissions"
         fi
     networks:
       - pc2-network
